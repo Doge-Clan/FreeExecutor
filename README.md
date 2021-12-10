@@ -24,3 +24,10 @@ javascript:window.addEventListener("beforeunload",function(e){return e.preventDe
 - You cannot switch sites to inject to and still have the same programs. Just an anti CORS thing browsers implement. 
 - The shell is not advanced and can be buggy when inputting keys. Probably will be fixed soon.
 - It clears only head and body tags. If JavaScript is outside those than the shell may keep unneeded or breaking JavaScript.
+
+**Apps**
+
+DumpMe (LocalStorage Item List)
+```
+document.head.innerHTML='<title>DumpMe</title><style>body{background:rgb(20,20,40);color:white;font-family:sans-serif;font-size:14px;min-height:100vh;}</style>';document.body.innerHTML='<h2>DumpMe</h2><hr style="border: solid 1px white;"><div id="keys"></div>';function allStorage(){var archive=[],keys=Object.keys(localStorage),i=0,key;for(;key=keys[i];i+=1){archive.push(key)}return archive}document.getElementById('keys').innerHTML=allStorage();let f=document.getElementById('keys').innerHTML.replace(/,/g,'<br>');document.getElementById('keys').innerHTML=f;
+```
