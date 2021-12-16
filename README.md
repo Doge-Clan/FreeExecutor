@@ -25,8 +25,8 @@ window.addEventListener("beforeunload",function(e){return e.preventDefault(),con
 
 **Quirks**
 
-- You cannot switch sites to inject to and still have the same programs. Just an anti CORS thing browsers implement. 
-- The shell is not advanced and can be buggy when inputting keys. Probably will be fixed soon.
+- You cannot switch sites to inject to and still have the same programs. This can't be fixed sadly.
+- The shell is not advanced and can be buggy when inputting keys. Probably will be fixed soon. ***Edit:** this has been fixed as of 0.2.0 WIP Commit*
 - It clears only head and body tags. If JavaScript is outside those than the shell may keep unneeded or breaking JavaScript.
 
 **Apps**
