@@ -15,18 +15,19 @@ javascript:window.addEventListener("beforeunload",function(e){return e.preventDe
 
 **Commands**
 
-*.FEBIN*: Execute a program
+*.febin*: Execute a program
 
-*SAVEBIN*: A Tool to write to the localStorage easily
+*savebin*: A Tool to write to the localStorage easily
 
-*PATCHFS*: Fix the FS to update to 0.1.1 Format
+*patchfs*: Fix the FS to update to 0.1.1 Format
 
-*BOOT2FE*: Boots to a FEBIN File (If you want a GUI, here you go)
+*boot2fe*: Boots to a FEBIN File (If you want a GUI, here you go)
+
+*echo*: Prints some text to an alert
 
 **Quirks**
 
 - You cannot switch sites to inject to and still have the same programs. This can't be fixed sadly.
-- The shell is not advanced and can be buggy when inputting keys. Probably will be fixed soon. ***Edit:** this has been fixed as of 0.2.0 WIP Commit*
 - It clears only head and body tags. If JavaScript is outside those than the shell may keep unneeded or breaking JavaScript.
 
 **Apps**
