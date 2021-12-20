@@ -19,7 +19,7 @@ javascript:window.addEventListener("beforeunload",function(e){return e.preventDe
 
 *savebin*: A Tool to write to the localStorage easily
 
-*patchfs*: Fix the FS to update to 0.1.1 Format
+*patchfs*: Fix the FS to update to modern formats
 
 *boot2fe*: Boots to a FEBIN File (If you want a GUI, here you go)
 
