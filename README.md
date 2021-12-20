@@ -29,6 +29,8 @@ javascript:window.addEventListener("beforeunload",function(e){return e.preventDe
 
 - You cannot switch sites to inject to and still have the same programs. This can't be fixed sadly.
 - It clears only head and body tags. If JavaScript is outside those than the shell may keep unneeded or breaking JavaScript.
+- Boot2FE is currently broken (0.2.1 should release with a patch for this)
+- Swapping apps that override the Ui and not calling ```init_()``` will not work as of 0.2.0 with new security measures (const can't be overriden)
 
 **Apps**
 
