@@ -1,6 +1,10 @@
 # FreeExecutor
-This is the source code for the HTML5 homebrew environment for programs. The environment is having a major rewrite (0.3.X) for allowing packages and shared dependencies along with a cleaner implementation.
+This is the source code for a JavaScript web-based shell. It can be embedded in an HTML5 page, or can be used as a bookmarklet to run over any website you desire.
 
-**Please be aware that this rewrite will be a breaking change over 0.2.X!**
+(C) 2021-2022 Doge Clan, Licensed under the LGPL 2.1 License
 
-Just be patient while this is updated.
+## Bookmarklet Source Code
+Not Ready Yet for production.
+
+## How to Use
+Currently to see all commands, run `fepkg --list-commands` to see all currently installed commands.
