@@ -1,8 +1,8 @@
 /*
-  FreeExecutor 0.3-pre1
+  FreeExecutor 0.3-pre2
   (C) 2022 Doge Clan, Licensed under the LGPL 2.1 License
   ================================================================
-  FreeExecutor 0.3-pre1 is a rewrite of FreeExecutor that fixes the poor code
+  FreeExecutor 0.3-pre2 is a rewrite of FreeExecutor that fixes the poor code
   of previous versions and adds many new features (Better VFS, Greatly improved Terminal,
   GUI Boilerplate, Builtin Libraries, etc.)
   
@@ -10,7 +10,7 @@
 */
 
 // Wrapper for FreeExecutor
-function _run() {
+(function() {
   // JavaScript Extensions
   window.page = {
     url: window.location.href,
@@ -28,7 +28,7 @@ function _run() {
   window.fe.isTextMode = localStorage.getItem('fe_textmode') || true;
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false;
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system";
-  window.fe.version = "0.3-pre1"; // The reported version
+  window.fe.version = "0.3-pre2"; // The reported version
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2022 Doge Clan, Licensed under LGPL 2.1 License";
 
   /*
@@ -38,17 +38,21 @@ function _run() {
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
-    installedCommands: ['clear', 'delete', 'exec', 'eval', 'fepkg', 'set'], // Used in the help command (To-do: Automate population of this)
+    installedCommands: ['clear', 'delete', 'eval', 'fepkg', 'set'], // Used in the help command (To-do: Automate population of this)
     loadAnonymousScript: function(packageName, src, isES6Module = false) {
       const elm = document.createElement('script');
       elm.src = src;
-      if (isES6Module) { elm.type = 'module'; } // ES6 Module Fun
+      if (isES6Module) { elm.type = 'module'; } // ES6 Module Fun (NO clue why modules would be used but... alright)
       
       document.body.appendChild(elm);
       
       window.fepkg.installedPackages.push(packageName);
       console.debug(`Sucessfully pushed anymous package ${packageName}`)
     }, // Saves as a package (Persistance does not work yet due to lack of VFS)
+    addCommand: function(name, func) {
+      window.fepkg.installedCommands.push(name);
+      window.fepkg[name] = func;
+    } // Add a command to the parser!
   }
 
   /*
@@ -62,6 +66,38 @@ function _run() {
     an improvement in the developer experience. (Very limited so far, will expand later)
   */
   
+  window.thread = class WindowThread {
+    constructor(src) {
+      if (!src) {
+        console.error('<br>@thread/constructor: No source given to create thread.');
+        return null;
+      } else {
+        const objURL = window.URL.createObjectURL(src);
+        this.worker = new Worker(objURL); // Imagine fixing a problem with only two lines
+      }
+    }
+    
+    setEvent(event, src) {
+      switch (event) {
+        case 'onData':
+          this.worker.onmessage = src; // onData for the web worker
+          break;
+          
+        default:
+          throw new Error('@thread: Unknown event ' + event + ' passed.');
+      }
+    }
+    
+    kill() {
+      this.worker.terminate();
+    }
+  }
+  
+  /*
+    window.thread is a new API that is just a wrapper around the WebWorker to make a way to define
+    threads without requiring multiple external JS files (only source is needed)
+  */
+  
   // JavaScript onerror Hook (WIP)
   window.onerror = function(err) {
     alert(err);
@@ -69,7 +105,7 @@ function _run() {
 
   // JavaScript Console Hooks (for textMode + GUI)
   console.defaultLog = console.log.bind(console);
-  console.logs = []; // Command History is now possible sorta with hacks lol
+  console.logs = []; // log history to redisplay
   console.log = function(){
     // default &  console.log()
     console.defaultLog.apply(console, arguments);
@@ -80,14 +116,40 @@ function _run() {
       document.body.innerHTML += console.logs[console.logs.length - 1] + "<br>"; 
       window.scrollTo(0, document.body.scrollHeight);
     } // Get last log and add it if in textMode
-  }; // console.log replacement function (errors are not supported yet)
+  }; // console.log replacement function
 
-  console.warn = console.log;
-  console.error = console.log; // Link this so it sorta works
+  console.defaultWarn = console.warn.bind(console);
+  console.warn = function(){
+    // default &  console.log()
+    console.defaultWarn.apply(console, arguments);
+    // new & array data
+    console.logs.push(Array.from(arguments));
+    // add to document.body
+    if (window.fe.isTextMode) {
+      document.body.innerHTML += "<span style='color:yellow;'>" + console.logs[console.logs.length - 1] + "</span><br>"; 
+      window.scrollTo(0, document.body.scrollHeight);
+    } // Get last log and add it if in textMode
+  }; // console.error replacement function
+  
+  console.defaultError = console.error.bind(console);
+  console.error = function(){
+    // default &  console.log()
+    console.defaultError.apply(console, arguments);
+    // new & array data
+    console.logs.push(Array.from(arguments));
+    // add to document.body
+    if (window.fe.isTextMode) {
+      document.body.innerHTML += "<span style='color:red;'>" + console.logs[console.logs.length - 1] + "</span><br>"; 
+      window.scrollTo(0, document.body.scrollHeight);
+    } // Get last log and add it if in textMode
+  }; // console.error replacement function; // Link this so it sorta works
+  
+  console.debug = console.log; // They basically are the same thing
   
   console.oldClear = console.clear;
   console.clear = function() {
     console.oldClear();
+    console.logs = []; // Fix a random memory leak in pre1
     if (window.fe.isTextMode) {
       document.body.innerHTML = "";
     }
@@ -137,10 +199,12 @@ function _run() {
     // A Better, Attribute like system for the commands (better *nix compat. + Removes need for .includes() or regex searches)
     let attrib = cmd;
     if (attrib.charAt(0) === " ") {
-      attrib = attrib.subString(0); // Remove first character so we don't split it
+      attrib = [...attrib];
+      attrib.shift();
+      attrib = attrib.join('');
     }
   
-    attrib = attrib.split(" ");
+    attrib = attrib.split(" "); // This works for now.
   
     window.fe.commandHistory.push(cmd);
     
@@ -148,14 +212,14 @@ function _run() {
     switch(attrib[0]) {
       case '':
         console.newLine();
-        break; // Like most terminals so we don't get errors without any command
+        break; // Like most terminals so we don't get errors without any command (literally any computer ever)
         
       case 'clear':
         console.clear();
         break; // Clear the console
       
       case 'delete':
-        let dl = attrib;
+        let dl = attrib; // toDelete
         dl.shift(); // Remove "delete"
         dl = attrib.toString(); // Change to string form
         dl.replaceAll(',', ' '); // Fix for array0
@@ -182,7 +246,7 @@ function _run() {
       
         const flags_ln = flags.length;
         if (flags_ln === 0) {
-          console.log('<br>Fatal! No Attributes defined! (Hint: Try --help to see possible options)');
+          console.error('<br>Fatal! No Attributes defined! (Hint: Try --help to see possible options)');
           // To-do: show help
           break;
         } else {
@@ -201,7 +265,7 @@ function _run() {
                 let packageName = flags [i + 1] || "unknown-injected-" + window.fe.installedPackages.length;
                 let srcStr = flags[i + 2]; // Source to get using fetch as a string
                 if (!srcStr) {
-                  console.log('Error! No Script Source was defined!');
+                  console.error('Error! No Script Source was defined!');
                   break;
                 }
                 
@@ -215,7 +279,7 @@ function _run() {
                       case 0:
                       case 404:
                       case 500:
-                        console.log('Failed to install ' + packageName + '(anonymous)')
+                        console.error('Failed to install ' + packageName + '(anonymous)')
                         break;
                         
                       case 200:
@@ -254,7 +318,7 @@ function _run() {
                 break; 
                 
               default:
-                console.log('Unknown attribute: '+ flags[i]);
+                console.error('Unknown attribute: '+ flags[i]);
                 break;
             }
           }
@@ -272,7 +336,7 @@ function _run() {
           str.replaceAll(',', ' ');
         } // Semi-Broken Fix for array data
         
-        let dataAsArr = [...str];
+        let dataAsArr = [...str]; // Spread operator is fun! I barely know how to use it!
         if (dataAsArr[0] === 'f' && dataAsArr[1] === 'e' && dataAsArr[2] === '_') {
           for (let i = 0; i < 2; i++) {
             data.shift();
@@ -288,7 +352,17 @@ function _run() {
         break;  
         
       default:
-        console.log(`<br>${attrib[0]} is not a known command or program.`);
+        // Since it is not in the hardcoded commands, search the rest of the installed commands and execute a global window.fepkg.[INSERT COMMAND NAME]
+        let index = attrib[0].indexOf();
+        if (index === -1) {
+          console.error(`<br>${attrib[0]} is not a known command or program.`);
+        } else {
+          let passedOn = attrib;
+          passedOn.shift(); // Remove command name from attrib
+          window.fepkg[attrib[0]](passedOn); // Pass it on to the executed
+        }
+        
+        
         break; // No Command Exists
     }
   }
@@ -342,6 +416,4 @@ function _run() {
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
   }
-}
-
-_run(); // A Fix to get to the bookmarklet to work (Bookmarklets require wrapper functions)
+})() // I moved the IIFE to an anonymous function to avoid polluting the injectable context.
