@@ -11,5 +11,5 @@ Currently to see all commands, run `fepkg --list-commands` to see all currently 
 
 ## Limitations
 - No Cross-Origin Scripts
-- `exec` is not implemented yet and you need to install anonymous scripts via fepkg for now. (`eval` works though)
-- No persistant packages akin to libnix (This will be added by 0.3 full release)
+- No persistant packages akin to libnix of 0.2.1 (This will be added by 0.3 full release)
+- Limitations that websites enforce still exist.
