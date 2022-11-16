@@ -1,14 +1,17 @@
 /*
-  FreeExecutor 0.3-pre2
+  FreeExecutor 0.3
   (C) 2022 Doge Clan, Licensed under the LGPL 2.1 License
   ================================================================
-  FreeExecutor 0.3-pre2 is a rewrite of FreeExecutor that fixes the poor code
-  of previous versions and adds many new features (Better VFS, Greatly improved Terminal,
+  FreeExecutor 0.3 is a rewrite of FreeExecutor that fixes the poor code
+  of previous versions and adds many new features (Greatly improved Terminal,
   GUI Boilerplate, Builtin Libraries, etc.)
   
-  NOT COMPATIBLE WITH PREVIOUS VERSIONS (0.1.0 - 0.2.1)!!! 
+   - VFS is not implemented yet
+   - NOT COMPATIBLE WITH PREVIOUS VERSIONS (0.1.0 - 0.2.1) 
 */
 
+
+// jshint esnext: true
 // Wrapper for FreeExecutor
 (function() {
   // JavaScript Extensions
@@ -28,8 +31,13 @@
   window.fe.isTextMode = localStorage.getItem('fe_textmode') || true;
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false;
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system";
-  window.fe.version = "0.3-pre2"; // The reported version
+  window.fe.version = "0.3"; // The reported version
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2022 Doge Clan, Licensed under LGPL 2.1 License";
+  window.fe.execGUI = function() {
+    alert('Nothing installed at fe.execGUI()! Please use libnix to patch the GUI.');
+    window.fe.isTextMode = true;
+    window.fe.isGraphicsMode = false;
+  }
 
   /*
     window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
@@ -38,7 +46,7 @@
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
-    installedCommands: ['clear', 'delete', 'eval', 'fepkg', 'set'], // Used in the help command (To-do: Automate population of this)
+    installedCommands: ['clear', 'eval', 'fepkg', 'unset', 'set'], // Used in the help command (To-do: Automate population of this)
     loadAnonymousScript: function(packageName, src, isES6Module = false) {
       const elm = document.createElement('script');
       elm.src = src;
@@ -60,10 +68,59 @@
   */
   
   window.Math.HALF_PI = Math.PI / 2;
+  window.Math.Vector = class NVector {
+    constructor(arr) {
+      this.dimensions = arr.length;
+      this.v = new Int32Array(arr); // Use generic array
+    }
+    
+    add(num) {
+      for (let i = 0; i < this.dimensions; i++) {
+        this.v[i] += num;
+      }
+    }
+    
+    sub(num) {
+      for (let i = 0; i < this.dimensions; i++) {
+        this.v[i] -= num;
+      }
+    }
+    
+    scale(factor) {
+      for (let i = 0; i < this.dimensions; i++) {
+        this.v[i] *= factor;
+      }
+    }
+    
+    multi(vectorToMultiplyBy) {
+      const v2 = vectorToMultiplyBy.v;
+      const ln = v2.length;
+      for (let i = 0; i < ln; i++) {
+        this.v[i] = this.v[i] * v2[i];
+      }
+    } // Multiply by vector
+    
+    // Hardcoded cool stuff to provide 4d vector hardcoding in an xyzw spec
+    get x() {
+      return this.v[0];
+    }
+    
+    get y() {
+      return this.v[1];
+    }
+    
+    get z() {
+      return this.v[2];
+    }
+    
+    get w() {
+      return this.v[3];
+    }
+  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2)
   
   /*
     window.Math.* are just some common tools that are added on to window.Math for
-    an improvement in the developer experience. (Very limited so far, will expand later)
+    an improvement in the developer experience. (limited so far, will expand later)
   */
   
   window.thread = class WindowThread {
@@ -84,13 +141,13 @@
           break;
           
         default:
-          throw new Error('@thread: Unknown event ' + event + ' passed.');
+          throw new Error('@thread: Unknown event "' + event + '" passed.');
       }
     }
     
     kill() {
       this.worker.terminate();
-    }
+    } // Say bye bye worker
   }
   
   /*
@@ -98,11 +155,25 @@
     threads without requiring multiple external JS files (only source is needed)
   */
   
+  
   // JavaScript onerror Hook (WIP)
   window.onerror = function(err) {
-    alert(err);
+    console.error('<br>' + err);
+    if (window.fe.isTextMode) {
+      cmd_string = ""; // Imagine abusing loose scope rules in JavaScript to fix stupid bugs definitely not me
+      document.body.innerHTML += `root@${window.fe.hostname}>`; // Add first command line
+    } // A mitigation for textMode/GraphicsMode
   }
 
+  // Libnix 1.1 (fe0.3 port of 0.2.1 version with localStorage until fs library is included
+  console.log('@system/libnix: Loading Startup Libraries...');
+  for (let a in localStorage) {
+     a = a.toUpperCase();
+     if (a.includes('OS:/USR/LIB/') && a.includes('.FBL')) {
+       eval(localStorage[a]); // Eval ISN'T HARMFUL (this can break installs maybe idk)
+     }
+   }
+  
   // JavaScript Console Hooks (for textMode + GUI)
   console.defaultLog = console.log.bind(console);
   console.logs = []; // log history to redisplay
@@ -159,7 +230,7 @@
     if (window.fe.isTextMode) {
       document.body.innerHTML += "<br>";
     }
-  } // Adds <br> because it is too common to not be a function
+  }; // Adds <br> because it is too common to not be a function
   
   // Clean the Page out of old trash
   document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title>';
@@ -218,13 +289,13 @@
         console.clear();
         break; // Clear the console
       
-      case 'delete':
+      case 'unset':
         let dl = attrib; // toDelete
         dl.shift(); // Remove "delete"
         dl = attrib.toString(); // Change to string form
         dl.replaceAll(',', ' '); // Fix for array0
         localStorage.removeItem('fe_'+dl);
-        console.log('<br>Removed '+dl);
+        console.log('<br>Unset '+dl);
         
         break;
         
@@ -350,18 +421,37 @@
         console.log('<br>Set '+toSet + ' to value '+data);
         
         break;  
+      
+      case 'savelibnix':
+        let prm = prompt('What should this libnix library be called?');
+        prm = prm.toUpperCase();
+        if (!prm.includes('.FBL')) {
+          prm += '.FBL';
+        }
+        
+        if (!prm.includes('OS:/USR/LIB/')) {
+          prm = "OS:/USR/LIB/" + prm; // Add
+        }
+        
+        let src = prompt('Insert source code below:');
+        if (!src) {
+          alert('You need to add source code to the library in order for it to work.');
+          break;
+        } else {
+          localStorage.setItem(prm, src);
+        }
+        
+        break; // A temporary tool so 0.3 can come out earlier and I can develop on it now
         
       default:
         // Since it is not in the hardcoded commands, search the rest of the installed commands and execute a global window.fepkg.[INSERT COMMAND NAME]
-        let index = attrib[0].indexOf();
+        let index = fepkg.installedCommands.indexOf(attrib[0]);
         if (index === -1) {
           console.error(`<br>${attrib[0]} is not a known command or program.`);
         } else {
           let passedOn = attrib;
-          passedOn.shift(); // Remove command name from attrib
-          window.fepkg[attrib[0]](passedOn); // Pass it on to the executed
+          window.fepkg[attrib[0]](passedOn); // Pass it on to be executed (Somehow this shit works)
         }
-        
         
         break; // No Command Exists
     }
@@ -403,7 +493,7 @@
       default:
         document.body.innerHTML += event.key;
         cmd_string += event.key;
-        break;
+        break; // Default case which is just the character
     }
   }
 
@@ -415,5 +505,6 @@
     document.body.innerHTML += `<br>root@${window.fe.hostname}>`; // Add first command line
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
+    window.fe.execGUI();
   }
-})() // I moved the IIFE to an anonymous function to avoid polluting the injectable context.
+})(); // I moved the IIFE to an anonymous function to avoid polluting the injectable context.
