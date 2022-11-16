@@ -31,7 +31,7 @@
   window.fe.isTextMode = localStorage.getItem('fe_textmode') || true;
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false;
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system";
-  window.fe.version = "0.3"; // The reported version
+  window.fe.version = "0.3.1"; // The reported version
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2022 Doge Clan, Licensed under LGPL 2.1 License";
   window.fe.execGUI = function() {
     alert('Nothing installed at fe.execGUI()! Please use libnix to patch the GUI.');
@@ -46,7 +46,7 @@
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
-    installedCommands: ['clear', 'eval', 'fepkg', 'unset', 'set'], // Used in the help command (To-do: Automate population of this)
+    installedCommands: ['alias', 'clear', 'eval', 'fepkg', 'unset', 'savelibnix', 'set'], // Used in the help command (To-do: Automate population of this)
     loadAnonymousScript: function(packageName, src, isES6Module = false) {
       const elm = document.createElement('script');
       elm.src = src;
@@ -100,7 +100,7 @@
       }
     } // Multiply by vector
     
-    // Hardcoded cool stuff to provide 4d vector hardcoding in an xyzw spec
+    // Hardcoded cool stuff to provide 4d vector hardcoding in an xyzw spec that many programs use (This is basically PVector sorta)
     get x() {
       return this.v[0];
     }
@@ -155,7 +155,6 @@
     threads without requiring multiple external JS files (only source is needed)
   */
   
-  
   // JavaScript onerror Hook (WIP)
   window.onerror = function(err) {
     console.error('<br>' + err);
@@ -170,7 +169,13 @@
   for (let a in localStorage) {
      a = a.toUpperCase();
      if (a.includes('OS:/USR/LIB/') && a.includes('.FBL')) {
+       try {
        eval(localStorage[a]); // Eval ISN'T HARMFUL (this can break installs maybe idk)
+       } catch(e) {
+         a = a.substring(4, a.length); // Cut string "OS:/" from a
+         a = "OS:/" + a.toLowerCase(); // rest should be lowercase because the emulated filesystem structure is FHS-like
+         console.error('@system/libnix: Failed to load FE Boot Library from ' + a)
+       }
      }
    }
   
@@ -232,6 +237,25 @@
     }
   }; // Adds <br> because it is too common to not be a function
   
+  // alert/prompt patches
+  const oldAlert = alert;
+  window.alert = function(data) {
+    if (window.fe.isTextMode) {
+      console.log('<br>' + data);
+    } else {
+      oldAlert(data);
+    }
+  }; // alert but not stupid
+  
+  const oldPrompt = prompt;
+  window.prompt = function(question, placeholder) {
+    if (window.fe.isTextMode) {
+      oldPrompt(question, placeholder); // Not ready yet, this is hard to do.
+    } else {
+      oldPrompt(question, placeholder);
+    }
+  }
+  
   // Clean the Page out of old trash
   document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title>';
   document.body.innerHTML = '';
@@ -285,6 +309,33 @@
         console.newLine();
         break; // Like most terminals so we don't get errors without any command (literally any computer ever)
         
+      case 'alias':
+        let s = attrib;
+        s.shift(); // Remove "alias"
+        s = s.join(' ');
+    
+        // Does = not exist?
+        if (!s.includes('=')) {
+          console.error('<br>Cannot create alias without anything being set!');
+          break;
+        } 
+        
+        // Some variables of the alias itself
+        let dta = s.substring(s.indexOf('=') + 1); // + 1 to remove = sign
+        let setData = s.slice(0, s.indexOf('=')); // What are we setting dta = to?
+        
+        // Does it have the same name as an existing command?
+        if (fepkg.installedCommands.indexOf(setData) !== -1) {
+          console.error('<br>Cannot use already taken command/alias name for an alias!');
+          break;
+        }
+        
+        // We are good, add the command to fepkg and let default case run it
+        window.fepkg.addCommand(setData, function(){window.fe.parseCommand(dta);});
+        console.log('<br>Created alias named '+ setData + ' to run ' + dta);
+        
+        break; // Alias ported command from bash (This is now since the environment is more complex)
+        
       case 'clear':
         console.clear();
         break; // Clear the console
@@ -292,8 +343,9 @@
       case 'unset':
         let dl = attrib; // toDelete
         dl.shift(); // Remove "delete"
-        dl = attrib.toString(); // Change to string form
-        dl.replaceAll(',', ' '); // Fix for array0
+        
+        dl = dl.join(' ');
+        
         localStorage.removeItem('fe_'+dl);
         console.log('<br>Unset '+dl);
         
@@ -302,8 +354,7 @@
       case 'eval':
         let evalStr = attrib; // Copy
         evalStr.shift(); // Remove command
-        evalStr = evalStr.toString(); // Change to string
-        evalStr = evalStr.replaceAll(',', ' '); // Yes, this needs to be improved but it works for now
+        evalStr = evalStr.join(' '); // Fixes known 0.3.0 bug
         
         eval(evalStr); // Evaluate now. Or Else.
         
@@ -419,7 +470,6 @@
         let toSet = str.slice(0, str.indexOf('='));
         localStorage.setItem('fe_' + toSet, data);
         console.log('<br>Set '+toSet + ' to value '+data);
-        
         break;  
       
       case 'savelibnix':
