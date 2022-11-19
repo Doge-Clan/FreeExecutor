@@ -1,13 +1,15 @@
 /*
-  FreeExecutor 0.3
+  FreeExecutor 0.4
   (C) 2022 Doge Clan, Licensed under the LGPL 2.1 License
   ================================================================
-  FreeExecutor 0.3 is a rewrite of FreeExecutor that fixes the poor code
-  of previous versions and adds many new features (Greatly improved Terminal,
-  GUI Boilerplate, Builtin Libraries, etc.)
-  
-   - VFS is not implemented yet
-   - NOT COMPATIBLE WITH PREVIOUS VERSIONS (0.1.0 - 0.2.1) 
+  FreeExecutor 0.4 is a major update version of FreeExecutor that makes it usable 
+  and gives the tools to finally use it as a daily system (sort-of-ish). This update includes:
+   - VFS (finally)
+   - Math library improvements (Lots of standard changes)
+   - Command aliases
+   - VFS related commands
+   - Bug fixes (some nasty ones including one that can brick your install due to a bad libnix library)
+   - QoL improvements
 */
 
 
@@ -28,16 +30,16 @@
   
   window.fe = { };
   
-  window.fe.isTextMode = localStorage.getItem('fe_textmode') || true;
-  window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false;
-  window.fe.hostname = localStorage.getItem('fe_hostname') || "system";
-  window.fe.version = "0.3.1"; // The reported version
-  window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2022 Doge Clan, Licensed under LGPL 2.1 License";
+  window.fe.isTextMode = localStorage.getItem('fe_textmode') || true; // is FreeExecutor in Text Mode?
+  window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
+  window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
+  window.fe.version = "0.4"; // The reported version of FreeExecutor
+  window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
   window.fe.execGUI = function() {
     alert('Nothing installed at fe.execGUI()! Please use libnix to patch the GUI.');
     window.fe.isTextMode = true;
     window.fe.isGraphicsMode = false;
-  }
+  }; // What to do when executing GUI. (To-do: Move to window.fe.user to seperate user managed and system managed)
 
   /*
     window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
@@ -67,7 +69,20 @@
     window.fepkg is a new extension that holds default fepkg data (that is it for now)
   */
   
-  window.Math.HALF_PI = Math.PI / 2;
+  // Misc.
+  window.Math.HALF_PI = Math.PI / 2; // Half Pi is now usable since it is very common
+  window.Math.average = function(numArr) {
+    let ln = numArr.length;
+    if (!ln) { console.error('@math/average: Non-array data passed. Make sure the average data is in an array!'); return null; }
+    let sum = 0; // Sum of all numbers
+    for (let i = 0; i < ln; i++) {
+      sum += numArr[i];
+    }
+    
+    return sum / ln; // The mean, in a function
+  }; // Calculates average :P
+  
+  // Linear Algebra
   window.Math.Vector = class NVector {
     constructor(arr) {
       this.dimensions = arr.length;
@@ -116,11 +131,35 @@
     get w() {
       return this.v[3];
     }
-  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2)
+  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2 uses this to save lines of code)
+  
+  // Cool Hardcoded Math Extensions that are aliases to various Linear Algebra parts
+  window.Math.Vector2 = class Vector2 {
+    constructor(x, y) {
+      return new Math.Vector([x, y]);
+    }
+  }
+  
+  window.Math.Vector3 = class Vector3 {
+    constructor(x, y, z) {
+      return new Math.Vector([x, y, z]);
+    }
+  }
+  
+  window.Math.Vector4 = class Vector4 {
+    constructor(x, y, z, w) {
+      return new Math.Vector([x, y, z, w]);
+    }
+  }
+  
+  if (localStorage.getItem('fe_no_multinamespaces') === "false") {
+    window.math = window.Math; // Make sure that Math.* can be accessed at math.* for style purposes
+  }
   
   /*
     window.Math.* are just some common tools that are added on to window.Math for
-    an improvement in the developer experience. (limited so far, will expand later)
+    an improvement in the developer experience, including some basic linear algebra tools that
+    can be used in game development (a standard library).
   */
   
   window.thread = class WindowThread {
@@ -134,18 +173,27 @@
       }
     }
     
-    setEvent(event, src) {
+    on(event, func) {
       switch (event) {
         case 'onData':
-          this.worker.onmessage = src; // onData for the web worker
+          this.worker.onmessage = func; // onData for the web worker
           break;
           
+        case 'onKill':
+          this.worker.onkill = func;
+          break; // New non-standard events! Fun for the whole dev team!
+          
         default:
-          throw new Error('@thread: Unknown event "' + event + '" passed.');
+          console.error('@thread/eventsetter: Unknown event "' + event + '" passed.'); // Change to console.error for consistency in code
+          break;
       }
-    }
+    } // .on() is a cleaner API than setEvent() hence it will be used for now on (a lot of libraries use .on() anyways)
     
     kill() {
+      if (this.worker.onkill) {
+          this.worker.onkill();
+      }
+      
       this.worker.terminate();
     } // Say bye bye worker
   }
@@ -281,6 +329,7 @@
     console.log('Setting Up Default Flags...');
       localStorage.setItem('fe_textmode', true);
       localStorage.setItem('fe_graphicsmode', false);
+      localStorage.setItem('fe_no_multinamespaces', false);
     console.log('Finishing Setup...');
       localStorage.setItem('fe_setup', true);
     console.log('Done!');
@@ -383,6 +432,9 @@
                 console.log('&ensp;&ensp;--list-commands: List installed commands');
                 break;
               
+              case '--update':
+                break; // Fetch the repo
+                
               case '--install-anonymous':
                 let packageName = flags [i + 1] || "unknown-injected-" + window.fe.installedPackages.length;
                 let srcStr = flags[i + 2]; // Source to get using fetch as a string
@@ -505,7 +557,20 @@
         
         break; // No Command Exists
     }
-  }
+  } // Parse command (Hardcoded + Added)
+  
+  window.fe.executeSH = function(script) {
+    let toParse = script.split('\n');
+    let ln = toParse.length;
+    if (ln > 0) {
+      for (let i = 0; i < ln; i++) {
+        window.fe.parseCommand(toParse[i]);
+      }
+    } else {
+      console.error('@fe/execsh: Cannot parse script with zero lines!');
+      return null;
+    }
+  } // Parse an SHell file (.sh) saved to VFS (Or just in pinned memory)
 
   // textMode Terminal GUI Utilities
   let cmd_string = "";
@@ -519,7 +584,7 @@
     
       case 'Enter':
         window.fe.parseCommand(cmd_string);
-        document.body.innerHTML += `root@${window.fe.hostname}>`;
+        document.body.innerHTML += `root@${window.fe.hostname}|OS:/>`;
         cmd_string = ""; // Reset cmd_string in ordewr to allow multiple commands
       
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
@@ -552,7 +617,7 @@
     window.addEventListener("keydown", parseKeyInput_textMode); // Enable Key Stroke Manager
 
     console.log(window.fe.startupMsg); // Startup message
-    document.body.innerHTML += `<br>root@${window.fe.hostname}>`; // Add first command line
+    document.body.innerHTML += `<br>root@${window.fe.hostname}|OS:/>`; // Add first command line
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
     window.fe.execGUI();
