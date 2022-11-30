@@ -4,22 +4,25 @@
   ================================================================
   FreeExecutor 0.4 is a major update version of FreeExecutor that makes it usable 
   and gives the tools to finally use it as a daily system (sort-of-ish). This update includes:
-   - VFS (finally)
-   - Math library improvements (Lots of standard changes)
-   - Command aliases
-   - VFS related commands
+   - VFS (finally, about time)
+   - Math library improvements (Lots of standard changes, Linear Algebra integrated)
+   - Canvas2D Renderer with ProcessingJS-ish syntax (Now you really can build your own GUI)
+   - Command aliases (Not important but alright)
    - Bug fixes (some nasty ones including one that can brick your install due to a bad libnix library)
-   - QoL improvements
+   - QoL improvements (echo command added)
+   - Code Quality Improvements (Fully ES5 Strict Mode Compatible)
 */
 
 
 // jshint esnext: true
 // Wrapper for FreeExecutor
 (function() {
+  "use strict"; // Ensure that ES5 strict mode is enabled
+  
   // JavaScript Extensions
   window.page = {
     url: window.location.href,
-    isGoGuardian: window.location.href.includes('blocked.goguardian.com'), // I found a way to extract random info from the ctx string of this site. For that extra feature.
+    isGoGuardian: window.location.href.includes('blocked.goguardian.com'), // I found a way to extract random info from the ctx string of this site. For that random feature used in 0.4 versions.
     isLocal: window.location.href.includes("C:") || window.location.href.indexOf('/') === 0 // Saved File (Windows/NT), Saved File (unix/unix like)
   };
 
@@ -33,14 +36,21 @@
   window.fe.isTextMode = localStorage.getItem('fe_textmode') || true; // is FreeExecutor in Text Mode?
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
+  window.fe.sharedMemorySize = localStorage.getItem('fe_sharedmem_size') || 1024; // The size of window.fe.sharedMemory
   window.fe.version = "0.4"; // The reported version of FreeExecutor
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
+  window.fe.currentUser = 'root'; // root = default, baseplate for multi-user system when VFS gets added
+  window.fe.sharedMemory = new Uint8Array(window.fe.sharedMemorySize); // Shared Memory in browser (1024 entries by default, 1KB)
   window.fe.execGUI = function() {
     alert('Nothing installed at fe.execGUI()! Please use libnix to patch the GUI.');
     window.fe.isTextMode = true;
     window.fe.isGraphicsMode = false;
   }; // What to do when executing GUI. (To-do: Move to window.fe.user to seperate user managed and system managed)
 
+  window.fe.isCompatibleWithBrowser = !window.MSInputMethodContext && !document.documentMode || // IE 11 Case (IE 10 and below will likely not execute)
+                                      !window.WebSocket || // Web Socket
+                                      !window.localStorage; // Local Storage Check (Probably will crash before we get this far)
+  
   /*
     window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
     to be exposed to programs that need them. It is essentially a kernel state with GUI modes, etc.
@@ -48,7 +58,7 @@
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
-    installedCommands: ['alias', 'clear', 'eval', 'fepkg', 'unset', 'savelibnix', 'set'], // Used in the help command (To-do: Automate population of this)
+    installedCommands: ['alias', 'clear', 'eval', 'echo', 'fepkg', 'unset', 'savelibnix', 'set'], // Used in the help command (To-do: Automate population of this)
     loadAnonymousScript: function(packageName, src, isES6Module = false) {
       const elm = document.createElement('script');
       elm.src = src;
@@ -69,6 +79,53 @@
     window.fepkg is a new extension that holds default fepkg data (that is it for now)
   */
   
+  window.C2DInstance = class Canvas2DRenderer {
+    constructor(canvas, width = 400, height = 400) {
+      if (!canvas || canvas.toUpperCase() === 'NONE') {
+        this.canvas = document.createElement('canvas');
+        this.canvas.height = height;
+        this.canvas.width = width;
+        
+        document.body.appendChild(this.canvas);
+      } else {
+        this.canvas = canvas;
+        this.canvas.height = height;
+        this.canvas.width = width;
+      }
+      
+      this.height = height;
+      this.width = width;
+      
+      this.ctx = this.canvas.getContext('2d');
+      if (!this.ctx) {
+        console.error('@c2dinstance/constructor: Could not get context. Is your browser up to date?');
+        return null;
+      }
+    }
+    
+    resize(width, height) {
+      this.width = width;
+      this.height = height;
+      
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+    
+    fill(r = 255, g = r, b = r, a = 1) {
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+    
+    get currentFill() {
+      return this.ctx.fillStyle;
+    }
+  }
+  
+  /*
+    window.C2DInstance is a new extension to FreeExecutor that is a basic rendering framework for
+    2D graphics using the canvas 2d API built in to all modern browsers. Mostly used within UI
+    creation/basic games.
+  */
+  
   // Misc.
   window.Math.HALF_PI = Math.PI / 2; // Half Pi is now usable since it is very common
   window.Math.average = function(numArr) {
@@ -80,7 +137,7 @@
     }
     
     return sum / ln; // The mean, in a function
-  }; // Calculates average :P
+  }; // Calculates average of an array :P
   
   // Linear Algebra
   window.Math.Vector = class NVector {
@@ -131,7 +188,7 @@
     get w() {
       return this.v[3];
     }
-  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2 uses this to save lines of code)
+  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2 uses this to save lines of code, they literally are wrappers to NVector)
   
   // Cool Hardcoded Math Extensions that are aliases to various Linear Algebra parts
   window.Math.Vector2 = class Vector2 {
@@ -197,6 +254,12 @@
       this.worker.terminate();
     } // Say bye bye worker
   }
+  
+  // The Array OBJ Expansion
+  Array.removeFirst2String = function(str) {
+    str.shift();
+    return str.join(' ');
+  }; // Remove First phrase from array
   
   /*
     window.thread is a new API that is just a wrapper around the WebWorker to make a way to define
@@ -268,12 +331,10 @@
     } // Get last log and add it if in textMode
   }; // console.error replacement function; // Link this so it sorta works
   
-  console.debug = console.log; // They basically are the same thing
-  
   console.oldClear = console.clear;
   console.clear = function() {
     console.oldClear();
-    console.logs = []; // Fix a random memory leak in pre1
+    console.logs = []; // Fix a random memory leak in pre1 (console.logs was never cleared)
     if (window.fe.isTextMode) {
       document.body.innerHTML = "";
     }
@@ -359,9 +420,7 @@
         break; // Like most terminals so we don't get errors without any command (literally any computer ever)
         
       case 'alias':
-        let s = attrib;
-        s.shift(); // Remove "alias"
-        s = s.join(' ');
+        let s = Array.removeFirst2String(attrib);
     
         // Does = not exist?
         if (!s.includes('=')) {
@@ -390,20 +449,23 @@
         break; // Clear the console
       
       case 'unset':
-        let dl = attrib; // toDelete
-        dl.shift(); // Remove "delete"
-        
-        dl = dl.join(' ');
+        let dl = Array.removeFirst2String(attrib);
         
         localStorage.removeItem('fe_'+dl);
         console.log('<br>Unset '+dl);
         
         break;
         
+      case 'echo':
+        let printdata = attrib;
+        printdata.shift();
+        printdata = printdata.join(' ');
+        
+        console.log('<br>'+printdata);
+        break;
+        
       case 'eval':
-        let evalStr = attrib; // Copy
-        evalStr.shift(); // Remove command
-        evalStr = evalStr.join(' '); // Fixes known 0.3.0 bug
+        let evalStr = Array.removeFirst2String(attrib);
         
         eval(evalStr); // Evaluate now. Or Else.
         
@@ -501,28 +563,17 @@
         break; // A Package Manager for FreeExecutor (fepkg)
         
       case 'set':
-        let str = attrib;
-        str.shift(); // Remove "set"
-        str = str.toString(); // Change to string data type
+        let str = Array.removeFirst2String(attrib);
+        let tstr = str.split('=');
+        str = tstr[1]; // Set str to split
+        let toSet = tstr[0];
+        if (toSet.charAt(0) === 'f' && toSet.charAt(1) === 'e' && toSet.charAt(2) === '_') {
+          toSet = toSet.split('fe_')[1];
+        } // Support extra style
         
-        let data = str.substring(str.indexOf('=') + 1); // + 1 to remove = sign
-        if (data.includes(',')) {
-          str.replaceAll(',', ' ');
-        } // Semi-Broken Fix for array data
-        
-        let dataAsArr = [...str]; // Spread operator is fun! I barely know how to use it!
-        if (dataAsArr[0] === 'f' && dataAsArr[1] === 'e' && dataAsArr[2] === '_') {
-          for (let i = 0; i < 2; i++) {
-            data.shift();
-          } // Shift Array 3 times (Probably bad method for code quality)
-          
-          str = dataAsArr.toString(); // Set str to this to complete fe_ string workaround
-        } // Is the first 3 characters fe_? If so, remove these to ensure things don't break due to poor script quality
-        
-        let toSet = str.slice(0, str.indexOf('='));
-        localStorage.setItem('fe_' + toSet, data);
-        console.log('<br>Set '+toSet + ' to value '+data);
-        break;  
+        localStorage.setItem('fe_' + toSet, str);
+        console.log('<br>Set '+ toSet + ' to value ' + str);
+        break;  // Set command but better written
       
       case 'savelibnix':
         let prm = prompt('What should this libnix library be called?');
@@ -570,10 +621,10 @@
       console.error('@fe/execsh: Cannot parse script with zero lines!');
       return null;
     }
-  } // Parse an SHell file (.sh) saved to VFS (Or just in pinned memory)
+  }; // Parse an SHell file (.sh) saved to VFS (Or just in pinned memory as a multiline)
 
   // textMode Terminal GUI Utilities
-  let cmd_string = "";
+  let cmd_string = ""; // the current held string
   function parseKeyInput_textMode(event) { 
     switch(event.key) {
       case 'Backspace':
@@ -584,7 +635,7 @@
     
       case 'Enter':
         window.fe.parseCommand(cmd_string);
-        document.body.innerHTML += `root@${window.fe.hostname}|OS:/>`;
+        document.body.innerHTML += `${window.fe.currentUser}@${window.fe.hostname}|OS:/>`;
         cmd_string = ""; // Reset cmd_string in ordewr to allow multiple commands
       
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
@@ -612,12 +663,15 @@
     }
   }
 
-  // Init Code
-  if (window.fe.isTextMode) {
+  // Init. Code
+  if (!window.fe.isCompatibleWithBrowser) {
+    document.body.innerHTML = 'Fatal! FreeExecutor ' + window.fe.version + ' could not find all required APIs within the browser!<br>Please update your browser.';
+  } // If Required APIs do not exist within the browser engine 
+  else if (window.fe.isTextMode) {
     window.addEventListener("keydown", parseKeyInput_textMode); // Enable Key Stroke Manager
 
     console.log(window.fe.startupMsg); // Startup message
-    document.body.innerHTML += `<br>root@${window.fe.hostname}|OS:/>`; // Add first command line
+    document.body.innerHTML += `<br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
     window.fe.execGUI();
