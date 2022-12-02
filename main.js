@@ -1,14 +1,15 @@
 /*
-  FreeExecutor 0.4
+  FreeExecutor 0.4.0
   (C) 2022 Doge Clan, Licensed under the LGPL 2.1 License
   ================================================================
-  FreeExecutor 0.4 is a major update version of FreeExecutor that makes it usable 
+  FreeExecutor 0.4.0 is a major update version of FreeExecutor that makes it usable 
   and gives the tools to finally use it as a daily system (sort-of-ish). This update includes:
    - VFS (finally, about time)
    - Math library improvements (Lots of standard changes, Linear Algebra integrated)
-   - Canvas2D Library
+   - Canvas2D Library (Early stages)
+   - Integrated Timer (Data API Wrapper globally)
    - Network Library (WebSockets)
-   - Command aliases (Not important but alright)
+   - More POSIX Standard Command Compat. (Still not done but it does now run a few bash scripts)
    - Bug fixes (some nasty ones including one that can brick your install due to a bad libnix library)
    - QoL improvements
    - Code Quality Improvements (Fully ES5 Strict Mode Compatible)
@@ -38,7 +39,7 @@
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
   window.fe.sharedMemorySize = localStorage.getItem('fe_sharedmem_size') || 1024; // The size of window.fe.sharedMemory
-  window.fe.version = "0.4"; // The reported version of FreeExecutor
+  window.fe.version = "0.4.0"; // The reported version of FreeExecutor
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
   window.fe.currentUser = 'root'; // root = default, baseplate for multi-user system when VFS gets added
   window.fe.sharedMemory = new Uint8Array(window.fe.sharedMemorySize); // Shared Memory in browser (1024 entries by default, 1KB)
@@ -81,9 +82,10 @@
   */
   
   window.C2DInstance = class Canvas2DRenderer {
-    constructor(canvas, width = 400, height = 400) {
+    constructor(canvas, width = 400, height = 400, canvasStyling = "") {
       if (!canvas || canvas.toUpperCase() === 'NONE') {
         this.canvas = document.createElement('canvas');
+        this.canvas.style = canvasStyling; // Hey, would you like to sign my petition?
         this.canvas.height = height;
         this.canvas.width = width;
         
@@ -116,8 +118,8 @@
       this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
     }
     
-    get currentFill() {
-      return this.ctx.fillStyle;
+    rect(x, y, w, h = w) {
+      this.ctx.fillRect(x, y, w, h);
     }
   }
   
@@ -202,7 +204,13 @@
     of programs that can hijack networking sockets on the same origin or connect to cross-origin sockets.
   */
   
-  // Misc.
+  // The Array Additions
+  Array.removeFirst2String = function(str) {
+    str.shift();
+    return str.join(' ');
+  }; // Remove First phrase from array
+  
+  // Misc. Math Additions
   window.Math.HALF_PI = Math.PI / 2; // Half Pi is now usable since it is very common
   window.Math.average = function(numArr) {
     let ln = numArr.length;
@@ -314,7 +322,7 @@
           
         case 'onKill':
           this.worker.onkill = func;
-          break; // New non-standard events! Fun for the whole dev team!
+          break; // New non-standard events! Fun for the whole dev teams who develop for FreeExecutor!
           
         default:
           console.error('@thread/eventsetter: Unknown event "' + event + '" passed.'); // Change to console.error for consistency in code
@@ -330,12 +338,6 @@
       this.worker.terminate();
     } // Say bye bye worker
   }
-  
-  // The Array OBJ Expansion
-  Array.removeFirst2String = function(str) {
-    str.shift();
-    return str.join(' ');
-  }; // Remove First phrase from array
   
   /*
     window.thread is a new API that is just a wrapper around the WebWorker to make a way to define
@@ -381,6 +383,14 @@
     } // Get last log and add it if in textMode
   }; // console.log replacement function
 
+  console.write = function(data) {
+    console.defaultLog(data);
+    if (window.fe.isTextMode) {
+      document.body.innerHTML += data;
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  }; // console.write with no <br>
+  
   console.defaultWarn = console.warn.bind(console);
   console.warn = function(){
     // default &  console.log()
@@ -435,7 +445,7 @@
   const oldPrompt = prompt;
   window.prompt = function(question, placeholder) {
     if (window.fe.isTextMode) {
-      oldPrompt(question, placeholder); // Not ready yet, this is hard to do.
+      oldPrompt(question, placeholder); // Not ready yet, this is hard to do within the current codebase
     } else {
       oldPrompt(question, placeholder);
     }
@@ -450,8 +460,8 @@
   style.margin = "0px";
   style.padding = "0px";
   style.userSelect = "none";
-  style.background = "rgb(20, 20, 20)";
-  style.color = "rgb(255, 255, 255)";
+  style.background = localStorage.getItem('fe_background_color') || "rgb(20, 20, 20)";
+  style.color = localStorage.getItem('fe_foreground_color') || "rgb(255, 255, 255)";
   style.fontFamily = "monospace";
   style.fontSize = "12px";
   style.overflowX = "hidden"; // for better text overflow (no left scroll, only vert.)
@@ -476,7 +486,7 @@
 
   // Command Parser (Links at window.fe)
   window.fe.commandHistory = []; // This is to give us command history for a later feature
-  window.fe.parseCommand = function(cmd) {
+  window.fe.parseCommand = function(cmd, options = {}) {
     // A Better, Attribute like system for the commands (better *nix compat. + Removes need for .includes() or regex searches)
     let attrib = cmd;
     if (attrib.charAt(0) === " ") {
@@ -485,15 +495,24 @@
       attrib = attrib.join('');
     }
   
-    attrib = attrib.split(" "); // This works for now.
+    attrib = attrib.split(" "); // This works very well suprisingly
   
-    window.fe.commandHistory.push(cmd);
+    // Options (Helps commands fix linebreaking)
+    const op = options;
+    const isCLI = op.isCLI || false;
+    if (isCLI) {
+      window.fe.commandHistory.push(cmd);
+    } 
     
     // Command Search
     switch(attrib[0]) {
       case '':
-        console.newLine();
-        break; // Like most terminals so we don't get errors without any command (literally any computer ever)
+      case '#!/bin/sh': // Stub /bin/sh for proper purposes (POSIX Compat.)
+        if (isCLI) {
+          console.newLine();
+        }
+        
+        break; // Basic stubbed commands/inputs
         
       case 'alias':
         let s = Array.removeFirst2String(attrib);
@@ -516,7 +535,9 @@
         
         // We are good, add the command to fepkg and let default case run it
         window.fepkg.addCommand(setData, function(){window.fe.parseCommand(dta);});
-        console.log('<br>Created alias named '+ setData + ' to run ' + dta);
+        if (isCLI) {
+          console.log('<br>Created alias named '+ setData + ' to run ' + dta);
+        }
         
         break; // Alias ported command from bash (This is now since the environment is more complex)
         
@@ -527,9 +548,12 @@
       case 'unset':
         let dl = Array.removeFirst2String(attrib);
         
-        localStorage.removeItem('fe_'+dl);
-        console.log('<br>Unset '+dl);
+        localStorage.removeItem('fe_' + dl);
         
+        if (isCLI) {
+        console.log('<br>Unset ' + dl);
+        }
+          
         break;
         
       case 'echo':
@@ -537,7 +561,10 @@
         printdata.shift();
         printdata = printdata.join(' ');
         
-        console.log('<br>'+printdata);
+        if (isCLI) {
+          console.log('<br>'+printdata);
+        }
+        
         break;
         
       case 'eval':
@@ -545,8 +572,10 @@
         
         eval(evalStr); // Evaluate now. Or Else.
         
-        console.newLine(); // Add a new line
-        
+        if (isCLI) {
+          console.newLine(); // Add a new line
+        }
+          
         break; // A Wrapper for eval, no safe guards because users are not implemented yet.
       
       case 'fepkg':
@@ -612,7 +641,7 @@
                 const pkg_ln = window.fepkg.installedPackages.length;
                 console.log('Installed Packages:')
                 for (let j = 0; j < pkg_ln; j++) {
-                  console.log('&ensp;&ensp;'+window.fepkg.installedPackages[j]);
+                  console.log('&ensp;&ensp;' + window.fepkg.installedPackages[j]);
                 }
               
                 i = flags_ln; // Basically a break statement for the for loop
@@ -623,9 +652,15 @@
                 const cmd_ln = window.fepkg.installedCommands.length;
                 console.log('Installed Commands:')
                 for (let j = 0; j < cmd_ln; j++) {
-                  console.log('&ensp;&ensp;'+window.fepkg.installedCommands[j]);
+                  if (j % 4 === 0 && j !== 0) {
+                    console.write('&ensp;&ensp;'+window.fepkg.installedCommands[j]);
+                    console.newLine();
+                  } else {
+                    console.write('&ensp;&ensp;'+window.fepkg.installedCommands[j]);
+                  } // To-do: Fix edge case of j = 0 fully
                 }
-              
+                
+                console.newLine();
                 i = flags_ln; // Basically a break statement for the for loop
                 break; 
                 
@@ -648,11 +683,24 @@
         } // Support extra style
         
         localStorage.setItem('fe_' + toSet, str);
-        console.log('<br>Set '+ toSet + ' to value ' + str);
+        
+        if (isCLI) {
+          console.log('<br>Set '+ toSet + ' to value ' + str);
+        }
+        
         break;  // Set command but better written
       
       case 'savelibnix':
+        if (!isCLI) {
+          console.error('savelibnix: Cannot run savelibnix when not in a CLI instance!');
+          return null;
+        }
+        
         let prm = prompt('What should this libnix library be called?');
+        if (prm === "") {
+          console.error('<br>savelibnix: No name added!');
+        }
+          
         prm = prm.toUpperCase();
         if (!prm.includes('.FBL')) {
           prm += '.FBL';
@@ -676,7 +724,7 @@
         // Since it is not in the hardcoded commands, search the rest of the installed commands and execute a global window.fepkg.[INSERT COMMAND NAME]
         let index = fepkg.installedCommands.indexOf(attrib[0]);
         if (index === -1) {
-          console.error(`<br>${attrib[0]} is not a known command or program.`);
+          console.error(`<br>${attrib[0]} is not a known location, file, or program.`);
         } else {
           let passedOn = attrib;
           window.fepkg[attrib[0]](passedOn); // Pass it on to be executed (Somehow this shit works)
@@ -684,7 +732,7 @@
         
         break; // No Command Exists
     }
-  } // Parse command (Hardcoded + Added)
+  }; // Parse command (Hardcoded + Added)
   
   window.fe.executeSH = function(script) {
     let toParse = script.split('\n');
@@ -710,13 +758,13 @@
         break;
     
       case 'Enter':
-        window.fe.parseCommand(cmd_string);
+        window.fe.parseCommand(cmd_string, { isCLI: true });
         document.body.innerHTML += `${window.fe.currentUser}@${window.fe.hostname}|OS:/>`;
         cmd_string = ""; // Reset cmd_string in ordewr to allow multiple commands
       
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
         break;
-    
+        
       case 'Shift':
       case 'Control':
       case 'Escape':
