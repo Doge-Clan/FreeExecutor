@@ -1,13 +1,12 @@
 /*
-  FreeExecutor 0.4.0
+  FreeExecutor 0.4
   (C) 2022 Doge Clan, Licensed under the LGPL 2.1 License
   ================================================================
-  FreeExecutor 0.4.0 is a major update version of FreeExecutor that makes it usable 
+  FreeExecutor 0.4 is a major update version of FreeExecutor that makes it usable 
   and gives the tools to finally use it as a daily system (sort-of-ish). This update includes:
    - VFS (finally, about time)
-   - Math library improvements (Lots of standard changes, Linear Algebra integrated)
-   - Canvas2D Library (Early stages)
-   - Integrated Timer (Data API Wrapper globally)
+   - Math library improvements (Lots of standard changes)
+   - Integrated Time API (Data API Wrapper globally)
    - Network Library (WebSockets)
    - More POSIX Standard Command Compat. (Still not done but it does now run a few bash scripts)
    - Bug fixes (some nasty ones including one that can brick your install due to a bad libnix library)
@@ -20,7 +19,7 @@
 // Wrapper for FreeExecutor
 (function() {
   "use strict"; // Ensure that ES5 strict mode is enabled
-  
+
   // JavaScript Extensions
   window.page = {
     url: window.location.href,
@@ -39,7 +38,7 @@
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
   window.fe.sharedMemorySize = localStorage.getItem('fe_sharedmem_size') || 1024; // The size of window.fe.sharedMemory
-  window.fe.version = "0.4.0"; // The reported version of FreeExecutor
+  window.fe.version = "0.4.0-rc1"; // The reported version of FreeExecutor
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
   window.fe.currentUser = 'root'; // root = default, baseplate for multi-user system when VFS gets added
   window.fe.sharedMemory = new Uint8Array(window.fe.sharedMemorySize); // Shared Memory in browser (1024 entries by default, 1KB)
@@ -79,54 +78,6 @@
 
   /*
     window.fepkg is a new extension that holds default fepkg data (that is it for now)
-  */
-  
-  window.C2DInstance = class Canvas2DRenderer {
-    constructor(canvas, width = 400, height = 400, canvasStyling = "") {
-      if (!canvas || canvas.toUpperCase() === 'NONE') {
-        this.canvas = document.createElement('canvas');
-        this.canvas.style = canvasStyling; // Hey, would you like to sign my petition?
-        this.canvas.height = height;
-        this.canvas.width = width;
-        
-        document.body.appendChild(this.canvas);
-      } else {
-        this.canvas = canvas;
-        this.canvas.height = height;
-        this.canvas.width = width;
-      }
-      
-      this.height = height;
-      this.width = width;
-      
-      this.ctx = this.canvas.getContext('2d');
-      if (!this.ctx) {
-        console.error('@c2dinstance/constructor: Could not get context. Is your browser up to date?');
-        return null;
-      }
-    }
-    
-    resize(width, height) {
-      this.width = width;
-      this.height = height;
-      
-      this.canvas.width = width;
-      this.canvas.height = height;
-    }
-    
-    fill(r = 255, g = r, b = r, a = 1) {
-      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
-    }
-    
-    rect(x, y, w, h = w) {
-      this.ctx.fillRect(x, y, w, h);
-    }
-  }
-  
-  /*
-    window.C2DInstance is a new extension to FreeExecutor that is a basic rendering framework for
-    2D graphics using the canvas 2d API built in to all modern browsers. Mostly used within UI
-    creation/basic games.
   */
   
   window.NetworkingInstance = class NetworkingInstanceDriver {
@@ -293,10 +244,6 @@
     }
   }
   
-  if (localStorage.getItem('fe_no_multinamespaces') === "false") {
-    window.math = window.Math; // Make sure that Math.* can be accessed at math.* for style purposes
-  }
-  
   /*
     window.Math.* are just some common tools that are added on to window.Math for
     an improvement in the developer experience, including some basic linear algebra tools that
@@ -344,11 +291,36 @@
     threads without requiring multiple external JS files (only source is needed)
   */
   
+  window.time = {
+    year: 2022, // Imagine assuming the year of development
+    month: 12,
+    day: 13,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    update: function() {
+      const t = window.time;
+      let d = new Date();
+      
+      // Update it now.
+      t.year = d.getFullYear();
+      t.month = d.getMonth() + 1; // Adding +1 to offset range of 0-11 to 1-12 (Who the hell uses 0-11?)
+      t.day = d.getDate;
+      t.hour = d.getHours();
+      t.minute = d.getMinutes();
+      t.second = d.getSeconds();
+    }
+  }; // Totally not assuming the release date
+  
+  /*
+    window.time is a new API that simply reads off the current time. That is literally it.
+  */
+  
   // JavaScript onerror Hook (WIP)
   window.onerror = function(err) {
     console.error('<br>' + err);
     if (window.fe.isTextMode) {
-      cmd_string = ""; // Imagine abusing loose scope rules in JavaScript to fix stupid bugs definitely not me
+      cmd_string = ""; // Imagine abusing loose scope rules in JavaScript to fix stupid bugs definitely not me (This is because cmd_string is not defined until late in the program)
       document.body.innerHTML += `root@${window.fe.hostname}>`; // Add first command line
     } // A mitigation for textMode/GraphicsMode
   }
@@ -468,7 +440,8 @@
 
   // Setup Utility (Init Script)
   let fe_setup = localStorage.getItem('fe_setup');
-  if (!fe_setup) {
+  let fe_setupversion = localStorage.getItem('fe_setupversion'); // To-do: Add a system to check if the reported version matches the setup version
+  if (!fe_setup || !fe_setupversion) {
     console.log('Welcome to FreeExecutor ' + window.fe.version);
     console.log('(C) 2022 Doge Clan, Licensed under the LGPL 2.1 License');
     console.newLine();
@@ -476,8 +449,9 @@
     console.log('Setting Up Default Flags...');
       localStorage.setItem('fe_textmode', true);
       localStorage.setItem('fe_graphicsmode', false);
-      localStorage.setItem('fe_no_multinamespaces', false);
+      localStorage.setItem('fe_use_highaccuracy_timer', false);
     console.log('Finishing Setup...');
+      localStorage.setItem('fe_setupversion', window.fe.version);
       localStorage.setItem('fe_setup', true);
     console.log('Done!');
   
@@ -788,6 +762,12 @@
   }
 
   // Init. Code
+  if (localStorage.getItem('fe_use_highaccuracy_timer') === "true") {
+    window.Timer = setInterval(time.update, 500);
+  } else {
+    window.Timer = setInterval(time.update, 1000);
+  }
+  
   if (!window.fe.isCompatibleWithBrowser) {
     document.body.innerHTML = 'Fatal! FreeExecutor ' + window.fe.version + ' could not find all required APIs within the browser!<br>Please update your browser.';
   } // If Required APIs do not exist within the browser engine 
