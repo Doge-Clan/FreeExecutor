@@ -8,7 +8,7 @@
    - Math library improvements (Lots of standard changes)
    - Integrated Time API (Data API Wrapper globally)
    - Network Library (WebSockets)
-   - More POSIX Standard Command Compat. (Still not done but it does now run a few bash scripts)
+   - More POSIX Standard Command Compat. (Still not done)
    - Bug fixes (some nasty ones including one that can brick your install due to a bad libnix library)
    - QoL improvements
    - Code Quality Improvements (Fully ES5 Strict Mode Compatible)
@@ -23,8 +23,7 @@
   // JavaScript Extensions
   window.page = {
     url: window.location.href,
-    isGoGuardian: window.location.href.includes('blocked.goguardian.com'), // I found a way to extract random info from the ctx string of this site. For that random feature used in 0.4 versions.
-    isLocal: window.location.href.includes("C:") || window.location.href.indexOf('/') === 0 // Saved File (Windows/NT), Saved File (unix/unix like)
+    isLocal: window.location.href.includes(":/") || window.location.href.indexOf('/') === 0 // Saved File (Windows/NT), Saved File (unix/unix like)
   };
 
   /*
@@ -38,7 +37,7 @@
   window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
   window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
   window.fe.sharedMemorySize = localStorage.getItem('fe_sharedmem_size') || 1024; // The size of window.fe.sharedMemory
-  window.fe.version = "0.4.0-rc1"; // The reported version of FreeExecutor
+  window.fe.version = "0.4.0-rc2"; // The reported version of FreeExecutor
   window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
   window.fe.currentUser = 'root'; // root = default, baseplate for multi-user system when VFS gets added
   window.fe.sharedMemory = new Uint8Array(window.fe.sharedMemorySize); // Shared Memory in browser (1024 entries by default, 1KB)
@@ -48,9 +47,10 @@
     window.fe.isGraphicsMode = false;
   }; // What to do when executing GUI. (To-do: Move to window.fe.user to seperate user managed and system managed)
 
-  window.fe.isCompatibleWithBrowser = !window.MSInputMethodContext && !document.documentMode || // IE 11 Case (IE 10 and below will likely not execute)
+  window.fe.isNotCompatibleWithBrowser = !window.MSInputMethodContext && !document.documentMode || // IE 11 Case (IE 10 and below will likely not execute)
                                       !window.WebSocket || // Web Socket
-                                      !window.localStorage; // Local Storage Check (Probably will crash before we get this far)
+                                      !window.localStorage || // Local Storage Check (Probably will crash before we get this far)
+                                      !window.caches; // No Caches?
   
   /*
     window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
@@ -305,7 +305,7 @@
       // Update it now.
       t.year = d.getFullYear();
       t.month = d.getMonth() + 1; // Adding +1 to offset range of 0-11 to 1-12 (Who the hell uses 0-11?)
-      t.day = d.getDate;
+      t.day = d.getDate(); // Why the fuck was this not a function
       t.hour = d.getHours();
       t.minute = d.getMinutes();
       t.second = d.getSeconds();
@@ -331,7 +331,7 @@
      a = a.toUpperCase();
      if (a.includes('OS:/USR/LIB/') && a.includes('.FBL')) {
        try {
-       eval(localStorage[a]); // Eval ISN'T HARMFUL (this can break installs maybe idk)
+       eval(localStorage[a]); // Eval ISN'T HARMFUL
        } catch(e) {
          a = a.substring(4, a.length); // Cut string "OS:/" from a
          a = "OS:/" + a.toLowerCase(); // rest should be lowercase because the emulated filesystem structure is FHS-like
@@ -760,7 +760,7 @@
         break; // Default case which is just the character
     }
   }
-
+  
   // Init. Code
   if (localStorage.getItem('fe_use_highaccuracy_timer') === "true") {
     window.Timer = setInterval(time.update, 500);
@@ -768,14 +768,20 @@
     window.Timer = setInterval(time.update, 1000);
   }
   
-  if (!window.fe.isCompatibleWithBrowser) {
+  if (!window.fe.isNotCompatibleWithBrowser) {
     document.body.innerHTML = 'Fatal! FreeExecutor ' + window.fe.version + ' could not find all required APIs within the browser!<br>Please update your browser.';
   } // If Required APIs do not exist within the browser engine 
   else if (window.fe.isTextMode) {
+    time.update(); // Ensure that the time is updated and ready to be used (for the Trans Easter Egg)
     window.addEventListener("keydown", parseKeyInput_textMode); // Enable Key Stroke Manager
 
     console.log(window.fe.startupMsg); // Startup message
-    document.body.innerHTML += `<br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line
+    
+    if (time.month === 11 && time.day === 20) { // Nov. 20th, Trans Remembrance Day 
+      document.body.innerHTML += `<span style='color:cyan'>Doge</span> <span style='color:pink'>Clan</span> says <span style='color:pink;'>Trans</span> <span style='color:cyan;'>Rights!</span><br><br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line, but trans its gender
+    } else {
+      document.body.innerHTML += `<br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line
+    }
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
     window.fe.execGUI();
