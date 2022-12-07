@@ -1,0 +1,19 @@
+{
+  "name": "free-executor",
+  "version": "0.4.0",
+  "description": "A JavaScript Shell for the web",
+  "main": "entry.js",
+  "scripts": {
+    "test": "echo \"Test Suites do not exist yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Doge-Clan/FreeExecutor.git"
+  },
+  "author": "Doge-Clan",
+  "license": "LGPL-2.1",
+  "bugs": {
+    "url": "https://github.com/Doge-Clan/FreeExecutor/issues"
+  },
+  "homepage": "https://github.com/Doge-Clan/FreeExecutor#readme"
+}
