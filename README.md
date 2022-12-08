@@ -10,7 +10,6 @@ Bookmarklet Code was temporarly removed due to it lagging and being ugly rendere
 Currently to see all commands, run `fepkg --list-commands` to see all currently installed commands.
 
 ## Limitations
-- No Cross-Origin Scripts
-- Limitations that websites enforce still exist (It is just injected JS).
-- No VFS implementation (0.4 should add this)
-- Text UI is not fully done and prompt/alert are still used and not patched
+- No Cross-Origin Scripts (Cross-Website Storage can be done but that may take a bit)
+- Some Websites fail to Execute because of strict security policies (Ex: Google Classroom)
+- Text UI is not fully done and prompt/alert are still used and not patched (Full Release of 0.4 will fix `prompt()`)
