@@ -14,48 +14,32 @@
    - Code Quality Improvements (Fully ES5 Strict Mode Compatible)
 */
 
+import { FECore } from './modules/fecore.js';
+import { FEMath } from './modules/math.js';
+import { NetworkingInstanceDriver } from './modules/network.js'; // To-do: Rename Export to NetworkingInstance
+import { WindowThread } from './modules/thread.js';
+import { WindowTime } from './modules/time.js';
+import { WindowPage } from './modules/page.js';
+
+import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS Driver (To-do: Maybe add driver interface soon?)
 
 // jshint esnext: true
 // Wrapper for FreeExecutor
 (function() {
   "use strict"; // Ensure that ES5 strict mode is enabled
 
-  // JavaScript Extensions
-  window.page = {
-    url: window.location.href,
-    isLocal: window.location.href.includes(":/") || window.location.href.indexOf('/') === 0 // Saved File (Windows/NT), Saved File (unix/unix like)
-  };
+  window.Math = {
+    ...FEMath, // FEMath
+    ...window.Math, // VanillaJS Math
+  }; 
 
-  /*
-    window.page is a new extension to the Window API that can be used to get various information
-    on the injected page from a bookmarklet perspective
-  */
-  
-  window.fe = { };
-  
-  window.fe.isTextMode = localStorage.getItem('fe_textmode') || true; // is FreeExecutor in Text Mode?
-  window.fe.isGraphicsMode = localStorage.getItem('fe_graphicsmode') || false; // is FreeExecutor in Graphics Mode?
-  window.fe.hostname = localStorage.getItem('fe_hostname') || "system"; // Hostname of the install?
-  window.fe.sharedMemorySize = localStorage.getItem('fe_sharedmem_size') || 1024; // The size of window.fe.sharedMemory
-  window.fe.version = "0.4.0-rc2"; // The reported version of FreeExecutor
-  window.fe.startupMsg = localStorage.getItem('fe_startupmsg') || "FreeExecutor " + window.fe.version + "<br>(C) 2021-2022 Doge Clan, Licensed under LGPL 2.1 License"; // Greeting Message on boot
-  window.fe.currentUser = 'root'; // root = default, baseplate for multi-user system when VFS gets added
-  window.fe.sharedMemory = new Uint8Array(window.fe.sharedMemorySize); // Shared Memory in browser (1024 entries by default, 1KB)
-  window.fe.execGUI = function() {
-    alert('Nothing installed at fe.execGUI()! Please use libnix to patch the GUI.');
-    window.fe.isTextMode = true;
-    window.fe.isGraphicsMode = false;
-  }; // What to do when executing GUI. (To-do: Move to window.fe.user to seperate user managed and system managed)
+  window.fe = FECore;
+  window.NetworkingInstance = NetworkingInstanceDriver;
+  window.thread = WindowThread;
+  window.time = WindowTime;
+  window.page = WindowPage;
 
-  window.fe.isNotCompatibleWithBrowser = !window.MSInputMethodContext && !document.documentMode || // IE 11 Case (IE 10 and below will likely not execute)
-                                      !window.WebSocket || // Web Socket
-                                      !window.localStorage || // Local Storage Check (Probably will crash before we get this far)
-                                      !window.caches; // No Caches?
-  
-  /*
-    window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
-    to be exposed to programs that need them. It is essentially a kernel state with GUI modes, etc.
-  */
+  window.fs = new IHFS1Instance('OS'); // The OS Partition for VFS
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
@@ -77,244 +61,14 @@
   }
 
   /*
-    window.fepkg is a new extension that holds default fepkg data (that is it for now)
+    window.fepkg is a new extension that is a WIP package manager. It is held within the main script because it is tightly integrated within the core of FreeExecutor
   */
   
-  window.NetworkingInstance = class NetworkingInstanceDriver {
-    constructor(url, onmessageCallback, wsoptions = {}) {
-      if (!url) {
-        console.error('@networkinstance/constructor: URL not provided.');
-        return null;
-      }
-      
-      if (!onmessageCallback) {
-        console.error('@networkinstance/constructor: onmessageCallback not provided.');
-        return null;
-      }
-      
-      this.connectionURL = url;
-      
-      this.connectionActive = false;
-      this.connectionSocket = new WebSocket(this.connectionURL.url, wsoptions);
-      this.connectionSocket.onopen = function(e) {
-        console.debug('@networkinstance/socketconnection: Connected to ' + url);
-        this.connectionActive = true;
-      }; // Socket just opened 
-      
-      this.connectionSocket.onerror = function(e) {
-        console.error('Uncaught Socket Error: ' + e);
-      }
-      
-      this.connectionSocket.onclose = function(e) {
-        if (e.wasClean) {
-          console.debug('@networkinstance/socketclose: Connection closed (safely).');
-        } else {
-          switch (e.code) {
-            case 1000:
-              console.warn('@networkinstance/socketclose: Code 1000 was not marked as clean. This is a clear bug within the API!');
-              return 1000; // Success, will send a warning about the invalid behavior
-              
-            case 1006:
-              if (navigator.onLine) {
-                console.error('@networkinstance/socketclose: Server-connection lost. (Server likely went down)');
-              } else {
-                console.error('@networkinstance/socketclose: Server-connection lost. (Internet connection was lost)');
-              }
-              
-              return 1006; // Case 1006 (Connection lost, no close frame)
-              
-            case 1009:
-              console.error('@networkinstance/socketclose: Message too big. The software using NetworkInstance is likely buggy and not well written.');
-              return 1009; // Case 1009 (Message too big)
-             
-            case 1011:
-              console.error('@networkinstance/socketclose: Unexpected Server Error.');
-              return 1011; // Case 1011 (Unexpected Server Error)
-              
-            default:
-              console.error('@networkinstance/socketclose: Socket connection lost for unknown reason.');
-              return e.code; // Some code not covered within the API
-          }
-        }
-      }; // The network dropped, find the probable reason
-      
-      this.connectionSocket.onmessage = onmessageCallback; // Run a callback provided via a passed function
-    }
-    
-    send(data) {
-      if (this.connectionSocket.readyState === 1) {
-        this.connectionSocket.send(data);
-      } else {
-        console.error('@networkinstance/datasend: Data send did not go through. (readyState =/= 1)')
-      }
-    }
-  }
-  
-  /*
-    window.NetworkingInstance is a new extension to FreeExecutor that simply wraps around WebSockets to allow development
-    of programs that can hijack networking sockets on the same origin or connect to cross-origin sockets.
-  */
-  
-  // The Array Additions
+  // The Array Addition
   Array.removeFirst2String = function(str) {
     str.shift();
     return str.join(' ');
   }; // Remove First phrase from array
-  
-  // Misc. Math Additions
-  window.Math.HALF_PI = Math.PI / 2; // Half Pi is now usable since it is very common
-  window.Math.average = function(numArr) {
-    let ln = numArr.length;
-    if (!ln) { console.error('@math/average: Non-array data passed. Make sure the average data is in an array!'); return null; }
-    let sum = 0; // Sum of all numbers
-    for (let i = 0; i < ln; i++) {
-      sum += numArr[i];
-    }
-    
-    return sum / ln; // The mean, in a function
-  }; // Calculates average of an array :P
-  
-  // Linear Algebra
-  window.Math.Vector = class NVector {
-    constructor(arr) {
-      this.dimensions = arr.length;
-      this.v = new Int32Array(arr); // Use generic array
-    }
-    
-    add(num) {
-      for (let i = 0; i < this.dimensions; i++) {
-        this.v[i] += num;
-      }
-    }
-    
-    sub(num) {
-      for (let i = 0; i < this.dimensions; i++) {
-        this.v[i] -= num;
-      }
-    }
-    
-    scale(factor) {
-      for (let i = 0; i < this.dimensions; i++) {
-        this.v[i] *= factor;
-      }
-    }
-    
-    multi(vectorToMultiplyBy) {
-      const v2 = vectorToMultiplyBy.v;
-      const ln = v2.length;
-      for (let i = 0; i < ln; i++) {
-        this.v[i] = this.v[i] * v2[i];
-      }
-    } // Multiply by vector
-    
-    // Hardcoded cool stuff to provide 4d vector hardcoding in an xyzw spec that many programs use (This is basically PVector sorta)
-    get x() {
-      return this.v[0];
-    }
-    
-    get y() {
-      return this.v[1];
-    }
-    
-    get z() {
-      return this.v[2];
-    }
-    
-    get w() {
-      return this.v[3];
-    }
-  }; // A Custom vector class to remove a common library requirement (Vector4/Vector3/Vector2 uses this to save lines of code, they literally are wrappers to NVector)
-  
-  // Cool Hardcoded Math Extensions that are aliases to various Linear Algebra parts
-  window.Math.Vector2 = class Vector2 {
-    constructor(x, y) {
-      return new Math.Vector([x, y]);
-    }
-  }
-  
-  window.Math.Vector3 = class Vector3 {
-    constructor(x, y, z) {
-      return new Math.Vector([x, y, z]);
-    }
-  }
-  
-  window.Math.Vector4 = class Vector4 {
-    constructor(x, y, z, w) {
-      return new Math.Vector([x, y, z, w]);
-    }
-  }
-  
-  /*
-    window.Math.* are just some common tools that are added on to window.Math for
-    an improvement in the developer experience, including some basic linear algebra tools that
-    can be used in game development (a standard library).
-  */
-  
-  window.thread = class WindowThread {
-    constructor(src) {
-      if (!src) {
-        console.error('<br>@thread/constructor: No source given to create thread.');
-        return null;
-      } else {
-        const objURL = window.URL.createObjectURL(src);
-        this.worker = new Worker(objURL); // Imagine fixing a problem with only two lines
-      }
-    }
-    
-    on(event, func) {
-      switch (event) {
-        case 'onData':
-          this.worker.onmessage = func; // onData for the web worker
-          break;
-          
-        case 'onKill':
-          this.worker.onkill = func;
-          break; // New non-standard events! Fun for the whole dev teams who develop for FreeExecutor!
-          
-        default:
-          console.error('@thread/eventsetter: Unknown event "' + event + '" passed.'); // Change to console.error for consistency in code
-          break;
-      }
-    } // .on() is a cleaner API than setEvent() hence it will be used for now on (a lot of libraries use .on() anyways)
-    
-    kill() {
-      if (this.worker.onkill) {
-          this.worker.onkill();
-      }
-      
-      this.worker.terminate();
-    } // Say bye bye worker
-  }
-  
-  /*
-    window.thread is a new API that is just a wrapper around the WebWorker to make a way to define
-    threads without requiring multiple external JS files (only source is needed)
-  */
-  
-  window.time = {
-    year: 2022, // Imagine assuming the year of development
-    month: 12,
-    day: 13,
-    hour: 0,
-    minute: 0,
-    second: 0,
-    update: function() {
-      const t = window.time;
-      let d = new Date();
-      
-      // Update it now.
-      t.year = d.getFullYear();
-      t.month = d.getMonth() + 1; // Adding +1 to offset range of 0-11 to 1-12 (Who the hell uses 0-11?)
-      t.day = d.getDate(); // Why the fuck was this not a function
-      t.hour = d.getHours();
-      t.minute = d.getMinutes();
-      t.second = d.getSeconds();
-    }
-  }; // Totally not assuming the release date
-  
-  /*
-    window.time is a new API that simply reads off the current time. That is literally it.
-  */
   
   // JavaScript onerror Hook (WIP)
   window.onerror = function(err) {
@@ -733,7 +487,7 @@
     
       case 'Enter':
         window.fe.parseCommand(cmd_string, { isCLI: true });
-        document.body.innerHTML += `${window.fe.currentUser}@${window.fe.hostname}|OS:/>`;
+        console.write(`${window.fe.currentUser}@${window.fe.hostname}|OS:/>`);
         cmd_string = ""; // Reset cmd_string in ordewr to allow multiple commands
       
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
@@ -755,7 +509,7 @@
         break; // Some things to not do anything on
       
       default:
-        document.body.innerHTML += event.key;
+        console.write(event.key);
         cmd_string += event.key;
         break; // Default case which is just the character
     }
@@ -769,7 +523,7 @@
   }
   
   if (!window.fe.isNotCompatibleWithBrowser) {
-    document.body.innerHTML = 'Fatal! FreeExecutor ' + window.fe.version + ' could not find all required APIs within the browser!<br>Please update your browser.';
+    console.write('Fatal! FreeExecutor ' + window.fe.version + ' could not find all required APIs within the browser!<br>Please update your browser.');
   } // If Required APIs do not exist within the browser engine 
   else if (window.fe.isTextMode) {
     time.update(); // Ensure that the time is updated and ready to be used (for the Trans Easter Egg)
@@ -785,5 +539,10 @@
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)
     window.fe.execGUI();
+  } else {
+    localStorage.setItem('fe_textmode', true);
+    localStorage.setItem('fe_graphicsmode', false);
+
+    console.write('Fatal! Invalid boot mode configuration (false:false). The boot modes have been reset to their default.<br>Please restart FreeExecutor to boot.')
   }
 })(); // I moved the IIFE to an anonymous function to avoid polluting the injectable context.
