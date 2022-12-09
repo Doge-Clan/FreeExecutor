@@ -20,8 +20,8 @@ FECore.set_execGUI = function(callback) {
 FECore.isNotCompatibleWithBrowser = !window.MSInputMethodContext && !document.documentMode || // IE 11 Case (IE 10 and below will likely not execute)
                                     !window.WebSocket || // Web Socket
                                     !window.localStorage || // Local Storage Check (Probably will crash before we get this far)
-                                    !window.caches; // No Caches?
-
+                                    !window.caches || // No Caches?
+                                    !window.indexedDB; // IndexedDB
 /*
   window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
   to be exposed to programs that need them. It is essentially a kernel state with GUI modes, etc.

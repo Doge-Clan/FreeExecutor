@@ -16,12 +16,84 @@ class IHFS1Instance {
 	specMinorVersion = 0; // Minor ihfs version (Bug fix/non-breaking change)
 	constructor(partitionName = 'OS') {
 		const scope = this;
+
 		async function getDB() {
-			scope.elm = await openDB(partitionName, scope.specMajorVersion);
+			scope.db = await openDB(partitionName, scope.specMajorVersion, {
+				upgrade(db) {
+					if (partitionName = 'OS') {
+						db.createObjectStore('/bin/', { autoIncrement: false }); // /bin/ (Standard Apps (/usr/bin/ basically))
+						db.createObjectStore('/home/', { autoIncrement: true }); // /home/ (Home for users, stub)
+						db.createObjectStore('/root/', { autoIncrement: false }); // /root (Root home)
+						db.createObjectStore('/sbin/', { autoIncrement: false }); // /sbin/ (Root only Apps (when perm. levels are added))
+						db.createObjectStore('/boot/', { autoIncrement: false }); // /boot/ (Boot directory)
+						db.createObjectStore('/boot/services/', { autoIncrement: false }); // /boot/services (Services Directory)
+					}
+				},
+			});
+		}
+
+		getDB();
+	} // Make the partition
+
+	createDirectory(path) {
+		if (path.chatAt(0) !== '/') path = "/" + path;
+		this.db.createObjectStore(path, { autoIncrement: false }); // Ensure defaults are enforced
+	}
+
+	writeFile(path, data) {
+		const scope = this;
+		let arr = path.split('/');
+		arr.shift();
+
+		let fileName = arr[arr.length - 1];
+		arr.pop();
+
+		path = arr.join('/');
+		path = '/' + path;
+		path = path + '/';
+
+		async function putFile() {
+			const tx = scope.db.transaction(path, 'readwrite');
+			await Promise.all([
+  			tx.store.put(data, fileName),
+  			tx.done,
+			]); // To-do: Maybe not use Promise.all()? It seems overkill to resolve it this way.
+		} // Async cool hack
+
+		putFile();
+	}
+
+	readFile(path) {
+		const scope = this;
+		let arr = path.split('/');
+		arr.shift();
+
+		let fileName = arr[arr.length - 1];
+		arr.pop();
+
+		path = arr.join('/');
+		path = '/' + path;
+		path = path + '/';
+
+		async function getFile() {
+			const tx = scope.db.transaction(path);
+			const data = await Promise.resolve(tx.store.get(fileName));
+
+			return data;
 		}
 		
-		getDB(); // Get the Enhanced Indexed Database via idb
+		let tmp = getFile();
+		return tmp;
 	}
+
+	delete() {
+		const scope = this;
+		async function killDB() {
+			await deleteDB(scope.partitionName);
+		}
+
+		killDB(); // kill the database!
+	} // Removes the current Partition
 }
 
 // Exports

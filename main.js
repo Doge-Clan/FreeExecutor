@@ -425,10 +425,13 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
         }
         
         let prm = prompt('What should this libnix library be called?');
-        if (prm === "") {
+        console.log(prm);
+        if (prm === "" || !prm) {
           console.error('<br>savelibnix: No name added!');
+          return null;
         }
           
+        
         prm = prm.toUpperCase();
         if (!prm.includes('.FBL')) {
           prm += '.FBL';
@@ -506,6 +509,18 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
       case '>':
       case '<':
       case '&':
+      case 'F1':
+      case 'F2':
+      case 'F3':
+      case 'F4':
+      case 'F5':
+      case 'F6':
+      case 'F7':
+      case 'F8':
+      case 'F9':
+      case 'F10':
+      case 'F11':
+      case 'F12':
         break; // Some things to not do anything on
       
       default:
