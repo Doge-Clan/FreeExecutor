@@ -28,10 +28,8 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
 (function() {
   "use strict"; // Ensure that ES5 strict mode is enabled
 
-  window.Math = {
-    ...FEMath, // FEMath
-    ...window.Math, // VanillaJS Math
-  }; 
+
+  Object.assign(window.Math, window.Math, FEMath); // Object.assign is used over spread to fix a random bug found while using Webpacked versions (0.4.0-rc1)
 
   window.fe = FECore;
   window.NetworkingInstance = NetworkingInstanceDriver;

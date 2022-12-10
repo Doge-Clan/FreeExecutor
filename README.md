@@ -10,6 +10,9 @@ This is the source code for a JavaScript web-based shell. It can be embedded in 
 ## How to Use
 Currently to see all commands, run `fepkg --list-commands` to see all currently installed commands.
 
+## Building
+Just run `./build.sh` at the root of the repository. This will run Webpack and UglifyJS assuming you install the npm package. The file should be found in the new `dist/` directory. Simple!
+
 ## Limitations
 - No Cross-Origin Scripts (Cross-Website Storage can be done but that may take a bit)
 - Some Websites fail to Execute because of strict security policies (Ex: Google Classroom)
