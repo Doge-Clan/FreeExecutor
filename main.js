@@ -16,7 +16,7 @@
 
 import { FECore } from './modules/fecore.js';
 import { FEMath } from './modules/math.js';
-import { NetworkingInstanceDriver } from './modules/network.js'; // To-do: Rename Export to NetworkingInstance
+import { NetworkingInstance } from './modules/network.js'; // To-do: Rename Export to NetworkingInstance
 import { WindowThread } from './modules/thread.js';
 import { WindowTime } from './modules/time.js';
 import { WindowPage } from './modules/page.js';
@@ -28,11 +28,10 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
 (function() {
   "use strict"; // Ensure that ES5 strict mode is enabled
 
-
   Object.assign(window.Math, window.Math, FEMath); // Object.assign is used over spread to fix a random bug found while using Webpacked versions (0.4.0-rc1)
 
   window.fe = FECore;
-  window.NetworkingInstance = NetworkingInstanceDriver;
+  window.NetworkingInstance = NetworkingInstance;
   window.thread = WindowThread;
   window.time = WindowTime;
   window.page = WindowPage;

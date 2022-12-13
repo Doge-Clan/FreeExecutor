@@ -22,6 +22,12 @@ FECore.isNotCompatibleWithBrowser = !window.MSInputMethodContext && !document.do
                                     !window.localStorage || // Local Storage Check (Probably will crash before we get this far)
                                     !window.caches || // No Caches?
                                     !window.indexedDB; // IndexedDB
+
+FECore.system = {
+  threads: navigator.hardwareConcurrency,
+  usableMemory: performance.memory.jsHeapSizeLimit || 0, // 0 is undefined/fallback case 
+};
+
 /*
   window.fe is a new extension to the Window API that stores the state of FreeExecutor and its modes
   to be exposed to programs that need them. It is essentially a kernel state with GUI modes, etc.

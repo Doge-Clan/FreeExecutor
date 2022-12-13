@@ -1,6 +1,6 @@
 export const WindowPage = {
 	url: window.location.href,
-	isLocal: window.location.href.includes(":/") || window.location.href.indexOf('/') === 0 // Saved File (Windows/NT), Saved File (unix/unix like)
+	isLocal: window.location.href.includes(":/") || window.location.href.indexOf('/') === 0, // Saved File (Windows/NT), Saved File (unix/unix like)
 };
 
 /*

@@ -1,4 +1,4 @@
-export class NetworkingInstanceDriver {
+export class NetworkingInstance {
   constructor(url, onmessageCallback, wsoptions = {}) {
     if (!url) {
       console.error('@networkinstance/constructor: URL not provided.');
