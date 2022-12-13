@@ -14,14 +14,21 @@
    - Code Quality Improvements (Fully ES5 Strict Mode Compatible)
 */
 
+// Kernel + Core APIs
 import { FECore } from './modules/fecore.js';
 import { FEMath } from './modules/math.js';
-import { NetworkingInstance } from './modules/network.js'; // To-do: Rename Export to NetworkingInstance
+import { PatcherInstance } from './modules/patcher.js'; // Patch Framework to load patches via imports
+import { NetworkingInstance } from './modules/network.js';
 import { WindowThread } from './modules/thread.js';
 import { WindowTime } from './modules/time.js';
 import { WindowPage } from './modules/page.js';
 
+// Drivers
 import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS Driver (To-do: Maybe add driver interface soon?)
+
+// Built-in Patches
+import { alertPatch } from './modules/patches/alert.js';
+import { consolePatch } from './modules/patches/console.js';
 
 // jshint esnext: true
 // Wrapper for FreeExecutor
@@ -58,7 +65,7 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
   }
 
   /*
-    window.fepkg is a new extension that is a WIP package manager. It is held within the main script because it is tightly integrated within the core of FreeExecutor
+    window.fepkg is a new extension that is a WIP package manager. It is held within the main script because it is tightly integrated within the core of FreeExecutor.
   */
   
   // The Array Addition
@@ -71,108 +78,18 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
   window.onerror = function(err) {
     console.error('<br>' + err);
     if (window.fe.isTextMode) {
-      cmd_string = ""; // Imagine abusing loose scope rules in JavaScript to fix stupid bugs definitely not me (This is because cmd_string is not defined until late in the program)
+      fe.cmdString = ""; // Imagine abusing loose scope rules in JavaScript to fix stupid bugs definitely not me (This is because fe.cmdString is not defined until late in the program)
       document.body.innerHTML += `root@${window.fe.hostname}>`; // Add first command line
     } // A mitigation for textMode/GraphicsMode
   }
 
-  // Libnix 1.1 (fe0.3 port of 0.2.1 version with localStorage until fs library is included
-  console.log('@system/libnix: Loading Startup Libraries...');
-  for (let a in localStorage) {
-     a = a.toUpperCase();
-     if (a.includes('OS:/USR/LIB/') && a.includes('.FBL')) {
-       try {
-       eval(localStorage[a]); // Eval ISN'T HARMFUL
-       } catch(e) {
-         a = a.substring(4, a.length); // Cut string "OS:/" from a
-         a = "OS:/" + a.toLowerCase(); // rest should be lowercase because the emulated filesystem structure is FHS-like
-         console.error('@system/libnix: Failed to load FE Boot Library from ' + a)
-       }
-     }
-   }
-  
-  // JavaScript Console Hooks (for textMode + GUI)
-  console.defaultLog = console.log.bind(console);
-  console.logs = []; // log history to redisplay
-  console.log = function(){
-    // default &  console.log()
-    console.defaultLog.apply(console, arguments);
-    // new & array data
-    console.logs.push(Array.from(arguments));
-    // add to document.body
-    if (window.fe.isTextMode) {
-      document.body.innerHTML += console.logs[console.logs.length - 1] + "<br>"; 
-      window.scrollTo(0, document.body.scrollHeight);
-    } // Get last log and add it if in textMode
-  }; // console.log replacement function
+  // Load Patching Framework + Patches
+  const FreeExecutorPatcher = new PatcherInstance();
 
-  console.write = function(data) {
-    console.defaultLog(data);
-    if (window.fe.isTextMode) {
-      document.body.innerHTML += data;
-      window.scrollTo(0, document.body.scrollHeight);
-    }
-  }; // console.write with no <br>
+  FreeExecutorPatcher.installPatch(consolePatch);
+  FreeExecutorPatcher.installPatch(alertPatch);
   
-  console.defaultWarn = console.warn.bind(console);
-  console.warn = function(){
-    // default &  console.log()
-    console.defaultWarn.apply(console, arguments);
-    // new & array data
-    console.logs.push(Array.from(arguments));
-    // add to document.body
-    if (window.fe.isTextMode) {
-      document.body.innerHTML += "<span style='color:yellow;'>" + console.logs[console.logs.length - 1] + "</span><br>"; 
-      window.scrollTo(0, document.body.scrollHeight);
-    } // Get last log and add it if in textMode
-  }; // console.error replacement function
-  
-  console.defaultError = console.error.bind(console);
-  console.error = function(){
-    // default &  console.log()
-    console.defaultError.apply(console, arguments);
-    // new & array data
-    console.logs.push(Array.from(arguments));
-    // add to document.body
-    if (window.fe.isTextMode) {
-      document.body.innerHTML += "<span style='color:red;'>" + console.logs[console.logs.length - 1] + "</span><br>"; 
-      window.scrollTo(0, document.body.scrollHeight);
-    } // Get last log and add it if in textMode
-  }; // console.error replacement function; // Link this so it sorta works
-  
-  console.oldClear = console.clear;
-  console.clear = function() {
-    console.oldClear();
-    console.logs = []; // Fix a random memory leak in pre1 (console.logs was never cleared)
-    if (window.fe.isTextMode) {
-      document.body.innerHTML = "";
-    }
-  }; // console.clear replacement function
-
-  console.newLine = function() {
-    if (window.fe.isTextMode) {
-      document.body.innerHTML += "<br>";
-    }
-  }; // Adds <br> because it is too common to not be a function
-  
-  // alert/prompt patches
-  const oldAlert = alert;
-  window.alert = function(data) {
-    if (window.fe.isTextMode) {
-      console.log('<br>' + data);
-    } else {
-      oldAlert(data);
-    }
-  }; // alert but not stupid
-  
-  const oldPrompt = prompt;
-  window.prompt = function(question, placeholder) {
-    if (window.fe.isTextMode) {
-      oldPrompt(question, placeholder); // Not ready yet, this is hard to do within the current codebase
-    } else {
-      oldPrompt(question, placeholder);
-    }
-  }
+  FreeExecutorPatcher.applyPatches();
   
   // Clean the Page out of old trash
   document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title>';
@@ -414,39 +331,6 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
         }
         
         break;  // Set command but better written
-      
-      case 'savelibnix':
-        if (!isCLI) {
-          console.error('savelibnix: Cannot run savelibnix when not in a CLI instance!');
-          return null;
-        }
-        
-        let prm = prompt('What should this libnix library be called?');
-        console.log(prm);
-        if (prm === "" || !prm) {
-          console.error('<br>savelibnix: No name added!');
-          return null;
-        }
-          
-        
-        prm = prm.toUpperCase();
-        if (!prm.includes('.FBL')) {
-          prm += '.FBL';
-        }
-        
-        if (!prm.includes('OS:/USR/LIB/')) {
-          prm = "OS:/USR/LIB/" + prm; // Add
-        }
-        
-        let src = prompt('Insert source code below:');
-        if (!src) {
-          alert('You need to add source code to the library in order for it to work.');
-          break;
-        } else {
-          localStorage.setItem(prm, src);
-        }
-        
-        break; // A temporary tool so 0.3 can come out earlier and I can develop on it now
         
       default:
         // Since it is not in the hardcoded commands, search the rest of the installed commands and execute a global window.fepkg.[INSERT COMMAND NAME]
@@ -476,20 +360,20 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
   }; // Parse an SHell file (.sh) saved to VFS (Or just in pinned memory as a multiline)
 
   // textMode Terminal GUI Utilities
-  let cmd_string = ""; // the current held string
+  window.fe.cmdString = ""; // the current held string
   function parseKeyInput_textMode(event) { 
     switch(event.key) {
       case 'Backspace':
       case 'Delete':
         document.body.innerHTML = document.body.innerHTML.substring(0, document.body.innerHTML.length - 1)
-        cmd_string = cmd_string.substring(0, cmd_string.length - 1)
+        fe.cmdString = fe.cmdString.substring(0, fe.cmdString.length - 1)
         break;
     
       case 'Enter':
-        window.fe.parseCommand(cmd_string, { isCLI: true });
+        window.fe.parseCommand(fe.cmdString, { isCLI: true });
         console.write(`${window.fe.currentUser}@${window.fe.hostname}|OS:/>`);
-        cmd_string = ""; // Reset cmd_string in ordewr to allow multiple commands
-      
+        window.fe.cmdString = ""; // Reset fe.cmdString in ordewr to allow multiple commands
+
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
         break;
         
@@ -522,7 +406,7 @@ import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS D
       
       default:
         console.write(event.key);
-        cmd_string += event.key;
+        fe.cmdString += event.key;
         break; // Default case which is just the character
     }
   }
