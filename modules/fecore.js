@@ -23,9 +23,10 @@ FECore.isNotCompatibleWithBrowser = !window.MSInputMethodContext && !document.do
                                     !window.caches || // No Caches?
                                     !window.indexedDB; // IndexedDB
 
+let mem = performance.memory || {};
 FECore.system = {
   threads: navigator.hardwareConcurrency,
-  usableMemory: performance.memory.jsHeapSizeLimit || 0, // 0 is undefined/fallback case 
+  usableMemory: mem.jsHeapSizeLimit || 0, // 0 is undefined/fallback case 
 };
 
 /*

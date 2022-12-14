@@ -24,7 +24,7 @@ import { WindowTime } from './modules/time.js';
 import { WindowPage } from './modules/page.js';
 
 // Drivers
-import { IHFS1Instance } from './modules/drivers/ihfs1.js'; // IHFS is the VFS Driver (To-do: Maybe add driver interface soon?)
+import { KeyFSInstance } from './modules/drivers/keyfs.js';
 
 // Built-in Patches
 import { alertPatch } from './modules/patches/alert.js';
@@ -42,8 +42,8 @@ import { consolePatch } from './modules/patches/console.js';
   window.thread = WindowThread;
   window.time = WindowTime;
   window.page = WindowPage;
-
-  window.fs = new IHFS1Instance('OS'); // The OS Partition for VFS
+  
+  window.fs = new KeyFSInstance();
 
   window.fepkg = {
     installedPackages: ['base_fe-' + window.fe.version], // Packages Installed
@@ -89,7 +89,7 @@ import { consolePatch } from './modules/patches/console.js';
   FreeExecutorPatcher.installPatch(consolePatch);
   FreeExecutorPatcher.installPatch(alertPatch);
   
-  FreeExecutorPatcher.applyPatches();
+  FreeExecutorPatcher.applyPatches({ });
   
   // Clean the Page out of old trash
   document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title>';
@@ -371,7 +371,7 @@ import { consolePatch } from './modules/patches/console.js';
     
       case 'Enter':
         window.fe.parseCommand(fe.cmdString, { isCLI: true });
-        console.write(`${window.fe.currentUser}@${window.fe.hostname}|OS:/>`);
+        console.write(`${window.fe.currentUser}@${window.fe.hostname}|/>`);
         window.fe.cmdString = ""; // Reset fe.cmdString in ordewr to allow multiple commands
 
         window.scrollTo(0, document.body.scrollHeight); // QoL fix since this is only enabled on textMode
@@ -428,9 +428,9 @@ import { consolePatch } from './modules/patches/console.js';
     console.log(window.fe.startupMsg); // Startup message
     
     if (time.month === 11 && time.day === 20) { // Nov. 20th, Trans Remembrance Day 
-      document.body.innerHTML += `<span style='color:cyan'>Doge</span> <span style='color:pink'>Clan</span> says <span style='color:pink;'>Trans</span> <span style='color:cyan;'>Rights!</span><br><br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line, but trans its gender
+      document.body.innerHTML += `<span style='color:cyan'>Doge</span> <span style='color:pink'>Clan</span> says <span style='color:pink;'>Trans</span> <span style='color:cyan;'>Rights!</span><br><br>${window.fe.currentUser}@${window.fe.hostname}|/>`; // Add first command line, but trans its gender
     } else {
-      document.body.innerHTML += `<br>${window.fe.currentUser}@${window.fe.hostname}|OS:/>`; // Add first command line
+      document.body.innerHTML += `<br>${window.fe.currentUser}@${window.fe.hostname}|/>`; // Add first command line
     }
   } else if (window.fe.isGraphicsMode) {
     style.overflow = "hidden"; // Hide overflow everywhere to allow a HTML based UI (X+Y)

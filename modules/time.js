@@ -17,15 +17,6 @@ export const WindowTime = {
     t.minute = d.getMinutes();
     t.second = d.getSeconds();
   },
-
-  getDelta: function() {
-    const t = window.time;
-    let d = new Date;
-
-    t.delta = d.getMilliseconds();
-
-    return t.delta;
-  }, // Get time delta (Used to calculate various framerate independent logic)
 }; // Totally not assuming the release date
   
 /*

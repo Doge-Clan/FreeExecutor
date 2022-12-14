@@ -1,7 +1,8 @@
 // A Patch framework for FreeExecutor
 class PatcherInstance {
-  constructor() {
+  constructor(config = {}) {
   	this.patches = [];
+		this.clearPatchesOnApply = config.clearPatchesOnApply || true;
   }
 
   installPatch(execFunc) {
@@ -14,7 +15,10 @@ class PatcherInstance {
       this.patches[i](); // Execute patch      
     }
 
-    console.log(`@patcherinstance: Loaded ${ln} patches`)
+    console.log(`@patcherinstance: Loaded ${ln} patches`);
+		if (this.clearPatchesOnApply) {
+			this.patches = [];
+		}
   }
 
 	get patchCount() {
