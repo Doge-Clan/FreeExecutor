@@ -92,7 +92,7 @@ import { consolePatch } from './modules/patches/console.js';
   FreeExecutorPatcher.applyPatches({ });
   
   // Clean the Page out of old trash
-  document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title>';
+  document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title><link rel="icon" type="image/png" href="icon.png">';
   document.body.innerHTML = '';
   
   // Load Default Stylesheet (JS for now, textMode)

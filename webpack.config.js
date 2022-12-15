@@ -1,6 +1,5 @@
 // Core Stuff
 const path = require('path');
-const webpack = require('webpack');
 
 // Config
 const config = {

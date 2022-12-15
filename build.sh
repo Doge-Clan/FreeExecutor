@@ -23,5 +23,6 @@ npx webpack-cli
 # UglifyJS (Minify Built Part)
 echo "Running Task: Minify (UglifyJS)..."
 npx uglifyjs --compress --mangle --output dist/FreeExecutor.js -- dist/FreeExecutor.js
+
 echo ""
 echo "Done!"
