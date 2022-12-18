@@ -86,10 +86,19 @@ import { consolePatch } from './modules/patches/console.js';
   // Load Patching Framework + Patches
   const FreeExecutorPatcher = new PatcherInstance();
 
+  // Install default patches
   FreeExecutorPatcher.installPatch(consolePatch);
   FreeExecutorPatcher.installPatch(alertPatch);
-  
-  FreeExecutorPatcher.applyPatches({ });
+
+  // VFS Patches
+  const VFSPatches = fs.fs.boot.patches;
+  const VFSPatchesIteratable = Object.keys(VFSPatches);
+  for (let i = 0, ln = VFSPatchesIteratable.length; i < ln; i++) {
+    FreeExecutorPatcher.installPatch(VFSPatches[VFSPatchesIteratable[i]])
+  }
+
+  // Apply Patches
+  FreeExecutorPatcher.applyPatches();
   
   // Clean the Page out of old trash
   document.head.innerHTML = '<meta charset="UTF-8"><title>FreeExecutor ' + window.fe.version + '</title><link rel="icon" type="image/png" href="icon.png">';
@@ -109,11 +118,15 @@ import { consolePatch } from './modules/patches/console.js';
   // Setup Utility (Init Script)
   let fe_setup = localStorage.getItem('fe_setup');
   let fe_setupversion = localStorage.getItem('fe_setupversion'); // To-do: Add a system to check if the reported version matches the setup version
-  if (!fe_setup || !fe_setupversion) {
+  if (!fe_setup || fe_setupversion !== fe.version) {
     console.log('Welcome to FreeExecutor ' + window.fe.version);
     console.log('(C) 2022 Doge Clan, Licensed under the LGPL 2.1 License');
     console.newLine();
   
+    console.log('Setting VFS Boothack...');
+    fs.change('/boot/boothack.txt', 'BOOTHACK');
+    fs.write();
+
     console.log('Setting Up Default Flags...');
       localStorage.setItem('fe_textmode', true);
       localStorage.setItem('fe_graphicsmode', false);

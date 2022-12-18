@@ -18,15 +18,33 @@ class FSCommon {
   }
 }
 
+// Populate (was __refresh) is now a hidden method over here
+const entries = await Promise.resolve(Storage.entries()); // Holy shit, it is sync! Thank god for top-level await!
+function __populate() {
+  //console.log(entries); // Debug if you need to check entries in keyval format
+  // Build flattened object
+  let flattenedFS = {};
+  for (let i = 0, ln = entries.length; i < ln; i++) {
+    flattenedFS[entries[i][0]] = entries[i][1];
+  }
+
+  // Return Populated OBJ 
+  return FSCommon.expandFlatOBJ(flattenedFS);
+}
+
 // Class
 class KeyFSInstance {
   keyFSVersion = '1.0';
-  constructor() {
+  constructor(options = {}) {
     this.fs = {}; // FS in memory
     this.changes = {}; // Changes that need to be saved (imagine git-sorta)
+    this.options = options;
     this.__DEBUG_STORAGE = Storage; // Debug Storage API (Don't access normally)
+    if (this.options.syncOperationsOnly) {
+      console.log('@fs/constructor: Sync operations are being enforced (undefined will be returned when Storage.get is requested)');
+    } // To-do:
 
-    this.__refresh(); // Storage.entries() ...
+    this.fs = __populate(); // Storage.entries() ...
   }
 
   change(path, data) {
@@ -81,21 +99,25 @@ class KeyFSInstance {
     } else {
       Storage.get(path + fileName).then((val) => onFetch(val));
     }
-  } // Read from FS (To-do: Read from FSCache)
+  } // Read from FS (To-do: Notify if operation is sync/async due to Cache Read)
 
-  __refresh() {
-    Storage.entries().then((entries) => {
-      //console.log(entries); // Debug if you need to check entries in keyval format
-      // Build flattened object
-      let flattenedFS = {};
-      for (let i = 0, ln = entries.length; i < ln; i++) {
-        flattenedFS[entries[i][0]] = entries[i][1];
-      }
+  __CCRead(path) {
+    if (path.charAt(0) !== '/') path = "/" + path;
+    let arr = path.split('/');
+		arr.shift();
 
-      // Populate the Filesystem
-      this.fs = FSCommon.expandFlatOBJ(flattenedFS);
-    })  
-  } // Refresh FS Database (Populates this.fs)
+    let fileName = arr[arr.length - 1];
+		arr.pop();
+
+		path = arr.join('/');
+		path = '/' + path;
+		path = path + '/';
+    try {
+      return s.fs[arr][fileName];
+    } catch {
+      return null;
+    }
+  } // Read only from CachedFS with a try statement (This is used within early loading of FreeExecutor)
 }
 
 // Exports

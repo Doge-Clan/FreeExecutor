@@ -6,7 +6,11 @@ class PatcherInstance {
   }
 
   installPatch(execFunc) {
-    this.patches.push(execFunc);
+    if (typeof execFunc === 'function') {
+      this.patches.push(execFunc);
+    } else {
+      this.patches.push(new Function(execFunc));
+    }
   }
 
   applyPatches() {
