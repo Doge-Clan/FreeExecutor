@@ -1,0 +1,24 @@
+{
+  "name": "free-executor",
+  "version": "0.4.0",
+  "description": "A JavaScript Shell for the web",
+  "main": "build.js",
+  "scripts": {
+    "test": "echo \"Test Suites do not exist yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Doge-Clan/FreeExecutor.git"
+  },
+  "author": "Doge-Clan",
+  "license": "LGPL-2.1",
+  "bugs": {
+    "url": "https://github.com/Doge-Clan/FreeExecutor/issues"
+  },
+  "homepage": "https://github.com/Doge-Clan/FreeExecutor#readme",
+  "devDependencies": {
+    "uglify-js": "^3.17.4",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1"
+  }
+}
